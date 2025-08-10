@@ -359,7 +359,7 @@ class LeftHand():
                                if v == same_finger.press)
 
             # 如果上一个手型有食指横按，判断一下是否需要保留
-            if same_finger.press == PRESSSTATE["Barre"] and same_finger._fingerIndex == 1:
+            if same_finger.press == PRESSSTATE["Barre"] and same_finger._fingerIndex == 1 and used_string_index_set:
                 if same_finger.stringIndex <= max(used_string_index_set):
                     keep_barre = True
                 else:
