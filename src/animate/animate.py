@@ -1,12 +1,13 @@
 import json
+import numpy as np
 from numpy import array, linalg, cross, random
-
+from scipy.spatial.transform import Rotation as R
 from ..hand.LeftFinger import PRESSSTATE
 from ..hand.RightHand import caculateRightHandFingers, calculateRightPick
-from ..utils.utils import get_position_by_fret
+from ..utils.utils import get_position_by_fret, slerp
 
 
-def leftHand2Animation(avatar: str, recorder: str, animation_json_path: str, tempo_changes, ticks_per_beat, FPS: float, max_string_index: int) -> None:
+def leftHand2Animation(avatar: str, recorder: str, animation_json_path: str, tempo_changes, ticks_per_beat, FPS: float, max_string_index: int, disable_barre: bool = True) -> None:
     """
     :params recorder: the path of the recorder file
     :params animation_json_path: the path of the file store information for animation
@@ -77,7 +78,7 @@ def leftHand2Animation(avatar: str, recorder: str, animation_json_path: str, tem
 
         # 计算左手的动画信息
         fingerInfos = animatedLeftHand(
-            avatar_data, item, normal, max_string_index, pitchwheel)
+            avatar_data, item, normal, max_string_index, pitchwheel, disable_barre=disable_barre)
 
         # 按弦帧
         data_for_animation.append({
@@ -151,12 +152,12 @@ def addPitchwheel(left_hand_recorder_file: str, pitch_wheel_map: list):
             json.dump(new_data, f, indent=4)
 
 
-def animatedLeftHand(avatar_data: object, item: object, normal: array, max_string_index: int, pitchwheel: int, rest_finger_distance=0.006):
+def animatedLeftHand(avatar_data: object, item: object, normal: array, max_string_index: int, pitchwheel: int, rest_finger_distance=0.006, disable_barre: bool = False):
     leftHand = item["leftHand"]
-    use_barre = item.get("use_barre", False)
+    hand_fret = item["hand_position"]
+    use_barre = item.get("use_barre", False) and not disable_barre
 
     fingerInfos = {}
-    hand_fret = 1
     barre_finger_string_index = 0
     index_finger_string_number = 0
 
@@ -175,15 +176,9 @@ def animatedLeftHand(avatar_data: object, item: object, normal: array, max_strin
         fret = finger_data["fingerInfo"]["fret"]
         press = finger_data["fingerInfo"]["press"]
 
-        min_press_fingerIndex = 4
         # skip open string. 空弦音跳过
         if fingerIndex == -1:
             continue
-
-        # 这里是计算当前手型的把位
-        if fingerIndex < min_press_fingerIndex:
-            min_press_fingerIndex = fingerIndex
-            hand_fret = max(fret - fingerIndex + 1, 1)
 
         # 不按弦的手指会稍微移动，以避免和按弦的手指挤在一起
         if press == PRESSSTATE['Open']:
@@ -253,7 +248,7 @@ def animatedLeftHand(avatar_data: object, item: object, normal: array, max_strin
             value="H_L",
             valueType="position",
             fret=hand_fret,
-            stringIndex=barre_finger_string_index,
+            stringIndex=index_finger_string_number,
             max_string_index=max_string_index
         )
 
@@ -527,8 +522,12 @@ def twiceLerp(avatar_data: object, hand_state: int, value: str, valueType: str, 
         p1 = array(data_dict["P1"])
         p2 = array(data_dict["P2"])
         p3 = array(data_dict["P3"])
+
+        # 检查是否为四元数（长度为4）或欧拉角（长度为3）
+        normal_rotation_is_quaternion = len(p0) == 4
     else:
         print("valueType error")
+        return array([])
 
     """
     当手型不为Normal，也就是hand_state不为0时，需要进行同一个品格上Normal和另一种手型之间的插值计算，另一个手型判断的依据是:
@@ -548,8 +547,14 @@ def twiceLerp(avatar_data: object, hand_state: int, value: str, valueType: str, 
     if hand_state == 0:
         p_fret_0 = get_position_by_fret(fret, p0, p2)
         p_fret_1 = get_position_by_fret(fret, p1, p3)
-        p_final = p_fret_0 + (p_fret_1 - p_fret_0) * \
-            stringIndex / max_string_index
+        if valueType == "rotation" and normal_rotation_is_quaternion:
+            # 使用四元数球面线性插值
+            t = stringIndex / max_string_index
+            p_final = slerp(p_fret_0, p_fret_1, t)
+        else:
+            # 使用标准线性插值
+            p_final = p_fret_0 + (p_fret_1 - p_fret_0) * \
+                stringIndex / max_string_index
     elif hand_state > 0:
         if valueType == "position":
             outer_data_dict = avatar_data['OUTER_LEFT_HAND_POSITIONS']
@@ -560,13 +565,28 @@ def twiceLerp(avatar_data: object, hand_state: int, value: str, valueType: str, 
             out_p0 = array(outer_data_dict["P0"])
             out_p2 = array(outer_data_dict["P2"])
 
-        real_p0 = p0 + (out_p0 - p0) * hand_state/max_string_index
-        real_p2 = p2 + (out_p2 - p2) * hand_state/max_string_index
+            # 检查是否为四元数
+            outer_rotation_is_quaternion = len(out_p0) == 4
+
+        if valueType == "rotation" and outer_rotation_is_quaternion:
+            # 四元数插值
+            real_p0 = slerp(p0, out_p0, hand_state/max_string_index)
+            real_p2 = slerp(p2, out_p2, hand_state/max_string_index)
+        else:
+            # 标准线性插值
+            real_p0 = p0 + (out_p0 - p0) * hand_state/max_string_index
+            real_p2 = p2 + (out_p2 - p2) * hand_state/max_string_index
 
         p_fret_0 = get_position_by_fret(fret, real_p0, real_p2)
         p_fret_1 = get_position_by_fret(fret, p1, p3)
-        p_final = p_fret_0 + (p_fret_1 - p_fret_0) * \
-            stringIndex / max_string_index
+        if valueType == "rotation" and outer_rotation_is_quaternion:
+            # 使用四元数球面线性插值
+            t = stringIndex / max_string_index
+            p_final = slerp(p_fret_0, p_fret_1, t)
+        else:
+            # 使用标准线性插值
+            p_final = p_fret_0 + (p_fret_1 - p_fret_0) * \
+                stringIndex / max_string_index
     else:
         if valueType == "position":
             inner_data_dict = avatar_data['INNER_LEFT_HAND_POSITIONS']
@@ -577,13 +597,28 @@ def twiceLerp(avatar_data: object, hand_state: int, value: str, valueType: str, 
             inner_p1 = array(inner_data_dict["P1"])
             inner_p3 = array(inner_data_dict["P3"])
 
-        real_P1 = p1 + (inner_p1 - p1) * abs(hand_state)/max_string_index
-        real_P3 = p3 + (inner_p3 - p3) * abs(hand_state)/max_string_index
+            # 检查是否为四元数
+            inner_rotation_is_quaternion = len(inner_p1) == 4
+
+        if valueType == "rotation" and inner_rotation_is_quaternion:
+            # 四元数插值
+            real_P1 = slerp(p1, inner_p1, abs(hand_state)/max_string_index)
+            real_P3 = slerp(p3, inner_p3, abs(hand_state)/max_string_index)
+        else:
+            # 标准线性插值
+            real_P1 = p1 + (inner_p1 - p1) * abs(hand_state)/max_string_index
+            real_P3 = p3 + (inner_p3 - p3) * abs(hand_state)/max_string_index
 
         p_fret_0 = get_position_by_fret(fret, p0, p2)
         p_fret_1 = get_position_by_fret(fret, real_P1, real_P3)
-        p_final = p_fret_0 + (p_fret_1 - p_fret_0) * \
-            stringIndex / max_string_index
+        if valueType == "rotation" and inner_rotation_is_quaternion:
+            # 使用四元数球面线性插值
+            t = stringIndex / max_string_index
+            p_final = slerp(p_fret_0, p_fret_1, t)
+        else:
+            # 使用标准线性插值
+            p_final = p_fret_0 + (p_fret_1 - p_fret_0) * \
+                stringIndex / max_string_index
 
     return p_final
 

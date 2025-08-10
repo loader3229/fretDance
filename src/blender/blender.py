@@ -109,8 +109,16 @@ def insert_values(fingerInfos):
             obj = bpy.data.objects[fingerInfo]
             value = fingerInfos[fingerInfo]
             if "rotation" in fingerInfo:
-                obj.rotation_euler = value
-                obj.keyframe_insert(data_path="rotation_euler")
+                # 检查value是欧拉角(3个元素)还是四元数(4个元素)
+                if len(value) == 4:
+                    # 四元数模式
+                    obj.rotation_mode = 'QUATERNION'
+                    obj.rotation_quaternion = value
+                    obj.keyframe_insert(data_path="rotation_quaternion")
+                else:
+                    # 欧拉角模式，但不用考虑具体是哪一种，因为不同文件中可能使用了不同的模式
+                    obj.rotation_euler = value
+                    obj.keyframe_insert(data_path="rotation_euler")
             else:
                 value = mathutils.Vector(value)
                 obj.location = value

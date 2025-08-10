@@ -1,6 +1,7 @@
 from typing import List, Dict, Tuple
 from ..guitar.Guitar import Guitar
 import numpy as np
+from numpy import linalg
 import itertools
 
 
@@ -185,18 +186,80 @@ def rotate_vector(euler_angles: list):
     return rotated_vector
 
 
+def slerp(q1, q2, t):
+    """
+    四元数球面线性插值 (Spherical Linear Interpolation)
+    :param q1: 第一个四元数 [x, y, z, w]
+    :param q2: 第二个四元数 [x, y, z, w]
+    :param t: 插值参数 [0, 1]
+    :return: 插值后的四元数
+    """
+    # 标准化四元数
+    q1 = q1 / linalg.norm(q1)
+    q2 = q2 / linalg.norm(q2)
+
+    # 计算点积
+    dot = np.dot(q1, q2)
+
+    # 如果点积为负，取反一个四元数以选择较短的路径
+    if dot < 0.0:
+        q2 = -q2
+        dot = -dot
+
+    # 如果四元数非常接近，使用线性插值避免数值不稳定
+    if dot > 0.9995:
+        result = q1 + t * (q2 - q1)
+        return result / linalg.norm(result)
+
+    # 计算角度和插值
+    theta_0 = np.arccos(dot)
+    theta = theta_0 * t
+    sin_theta = np.sin(theta)
+    sin_theta_0 = np.sin(theta_0)
+
+    s1 = np.cos(theta) - dot * sin_theta / sin_theta_0
+    s2 = sin_theta / sin_theta_0
+
+    return s1 * q1 + s2 * q2
+
+
 def get_position_by_fret(fret: float, value_1: np.array, value_12: np.array) -> np.array:
-    base_ratio = 2**(1/12)
-    value_0 = (2 * value_12 - base_ratio *
-               (2 * value_12 - value_1)) / (2 - base_ratio)
+    """
+    根据品格数计算位置，支持三元位置向量和四元数旋转
+    :param fret: 品格数
+    :param value_1: 1品位置或旋转
+    :param value_12: 12品位置或旋转
+    :return: 对应品格的位置或旋转
+    """
+    # 处理边界情况
+    if fret == 1:
+        return value_1
+    elif fret == 12:
+        return value_12
 
-    return fret_position(value_0, value_12, fret)
+    # 计算各种比率
+    ratio_fret = 2**(-fret/12)
+    ratio_1 = 2**(-1/12)
+    ratio_12 = 2**(-12/12)  # 即 0.5
 
+    # 计算插值参数
+    t = (ratio_fret - ratio_1) / (ratio_12 - ratio_1)
 
-def fret_position(string_start, string_middle, fret_number):
-    string_end = 2 * string_middle - string_start
-    end_to_start = string_end - string_start
+    # 检查是否为四元数（长度为4）或位置向量（长度为3）
+    is_scalar = isinstance(value_1, (int, float)) or isinstance(
+        value_12, (int, float))
 
-    end_to_fret = end_to_start * 0.5**(fret_number/12)
-    fret_position = string_end - end_to_fret
-    return fret_position
+    is_quaternion = False
+    if not is_scalar:
+        try:
+            is_quaternion = len(value_1) == 4 and len(value_12) == 4
+        except TypeError:
+            # 如果无法获取长度，则不是四元数
+            is_quaternion = False
+
+    if is_quaternion:
+        # 四元数情况：使用球面线性插值
+        return slerp(value_1, value_12, t)
+    else:
+        # 三元向量情况：使用线性插值
+        return value_1 + (value_12 - value_1) * t

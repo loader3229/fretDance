@@ -62,7 +62,8 @@ class HandPoseRecorder():
                 "real_tick": real_tick,
                 "frame": frame,
                 "leftHand": handInfo,
-                "use_barre": leftHand.useBarre
+                "use_barre": leftHand.useBarre,
+                "hand_position": leftHand.handPosition
             })
 
         with open(jsonFilePath, 'w') as f:

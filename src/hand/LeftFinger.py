@@ -1,7 +1,7 @@
 from ..guitar.GuitarString import GuitarString
 from ..guitar.GuitarNote import GuitarNote
 from ..guitar.Guitar import Guitar
-from ..utils.utils import fret_position
+from ..utils.utils import get_position_by_fret
 from typing import List
 import math
 
@@ -105,12 +105,10 @@ class LeftFinger:
         :params targetFinger: 目标手指
         :return: entropy. 熵
         """
-        fingerFretDistance = 0
-        if self.fret != targetFinger.fret:
-            start_fret = min(self.fret, targetFinger.fret)
-            end_fret = max(self.fret, targetFinger.fret)
-            start_fret_position = fret_position(0, 0.5, start_fret)
-            end_fret_position = fret_position(0, 0.5, end_fret)
-            fingerFretDistance += guitar._fullString * \
-                abs(end_fret_position - start_fret_position)
-        return fingerFretDistance
+        if self.fret == targetFinger.fret:
+            return 0
+        else:
+            start_fret_position = get_position_by_fret(0, 0.5, self.fret)
+            end_fret_position = get_position_by_fret(0, 0.5, targetFinger.fret)
+        return guitar._fullString * \
+            abs(end_fret_position - start_fret_position)

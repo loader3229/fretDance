@@ -226,6 +226,7 @@ class LeftHand():
 
         barre_fingers = []
         barre_finger_dict = {}
+        barre_string_index = -1
         need_barre = False
         keep_barre = False
         use_barre = False
@@ -332,7 +333,7 @@ class LeftHand():
             finger_can_keep = True
             for barre_finger_index in barre_finger_dict:
                 barre_fret, barre_string_index = barre_finger_dict[barre_finger_index]
-                if old_fret <= barre_fret and old_string_index <= barre_string_index:
+                if old_fret <= barre_fret or old_string_index > barre_string_index:
                     finger_can_keep = False
                     break
 
@@ -357,13 +358,12 @@ class LeftHand():
             press_state = next(k for k, v in PRESSSTATE.items()
                                if v == same_finger.press)
 
-            if same_finger.press == PRESSSTATE["Barre"]:
-                keep_barre = True
-                # 如果上一个保留横按的横按指的弦低于当前按弦的弦，那么需要横按指往低移动
-                # 具体来讲，比如一个原来是横按123弦的保留指，结果现在要演奏的音出现了4弦，那么横按指应该至少移动到5弦才会让动画看起来正常
-                old_string_index = max(
-                    old_string_index, max(used_string_index_set)+1)
-                old_string_index = min(old_string_index, 5)
+            # 如果上一个手型有食指横按，判断一下是否需要保留
+            if same_finger.press == PRESSSTATE["Barre"] and same_finger._fingerIndex == 1:
+                if same_finger.stringIndex <= max(used_string_index_set):
+                    keep_barre = True
+                else:
+                    press_state = "Open"
 
             # 小指不使用保留指，因为动画里横按时小指的状态太难处理
             if old_finger_index == 4:

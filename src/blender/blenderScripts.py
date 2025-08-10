@@ -219,7 +219,20 @@ def import_left_controller_info(position_name: Literal["P0", "P1", "P2", "P3"], 
                     imported_objects.append(f"位置球 {position_ball_name} (位置)")
                 elif collection == "RotationControllers":
                     rotation_cone_name = f'{status_name}_{position_name}_H_rotation_L'
-                    obj.rotation_euler = bpy.data.objects[rotation_cone_name].rotation_euler
+                    rotation_cone = bpy.data.objects[rotation_cone_name]
+
+                    # 检查旋转模式是否匹配
+                    if obj.rotation_mode == rotation_cone.rotation_mode:
+                        # 旋转模式相同，直接复制
+                        if obj.rotation_mode == 'QUATERNION':
+                            obj.rotation_quaternion = rotation_cone.rotation_quaternion
+                        else:
+                            obj.rotation_euler = rotation_cone.rotation_euler
+                    else:
+                        # 旋转模式不同，输出提示信息
+                        print(
+                            f"警告: {obj.name} 和 {rotation_cone_name} 的旋转模式不匹配 ({obj.rotation_mode} vs {rotation_cone.rotation_mode})，跳过旋转导入")
+
                     imported_objects.append(f"旋转锥 {rotation_cone_name} (旋转)")
             except Exception as e:
                 print(f"Error: {e}")
@@ -245,6 +258,20 @@ def set_left_controller_info_to_position_balls(position_name: Literal["P0", "P1"
         obj.lock_rotation[0] = False
         obj.lock_rotation[1] = False
         obj.lock_rotation[2] = False
+
+    def copy_constraint_properties(src_constraint, dst_constraint):
+        """复制约束器属性"""
+        # 复制常见的约束器属性
+        if hasattr(src_constraint, 'target'):
+            dst_constraint.target = src_constraint.target
+        if hasattr(src_constraint, 'subtarget'):
+            dst_constraint.subtarget = src_constraint.subtarget
+        if hasattr(src_constraint, 'influence'):
+            dst_constraint.influence = src_constraint.influence
+        if hasattr(src_constraint, 'owner_space'):
+            dst_constraint.owner_space = src_constraint.owner_space
+        if hasattr(src_constraint, 'target_space'):
+            dst_constraint.target_space = src_constraint.target_space
 
     collections = ['FingerPositionControllers',
                    'RotationControllers', 'HandPositionControllers']
@@ -282,7 +309,68 @@ def set_left_controller_info_to_position_balls(position_name: Literal["P0", "P1"
                     rotation_cone_name = f'{status_name}_{position_name}_H_rotation_L'
                     rotation_cone = bpy.data.objects[rotation_cone_name]
                     unlock_rotation(rotation_cone)
-                    rotation_cone.rotation_euler = obj.rotation_euler
+
+                    # 检查是否有约束器
+                    constraints_data = []
+                    if obj.constraints:
+                        # 记住约束器的各种参数
+                        for constraint in obj.constraints:
+                            constraint_data = {
+                                'type': constraint.type,
+                                'name': constraint.name,
+                                'mute': constraint.mute,
+                                'influence': constraint.influence if hasattr(constraint, 'influence') else 1.0
+                            }
+                            # 根据不同约束类型记录特定属性
+                            if hasattr(constraint, 'target'):
+                                constraint_data['target'] = constraint.target
+                            if hasattr(constraint, 'subtarget'):
+                                constraint_data['subtarget'] = constraint.subtarget
+                            if hasattr(constraint, 'owner_space'):
+                                constraint_data['owner_space'] = constraint.owner_space
+                            if hasattr(constraint, 'target_space'):
+                                constraint_data['target_space'] = constraint.target_space
+                            constraints_data.append(constraint_data)
+
+                        # 应用约束器
+                        bpy.context.view_layer.objects.active = obj
+                        bpy.ops.object.visual_transform_apply()
+
+                    # 检查旋转模式是否匹配
+                    if obj.rotation_mode == rotation_cone.rotation_mode:
+                        # 旋转模式相同，直接复制
+                        if rotation_cone.rotation_mode == 'QUATERNION':
+                            rotation_cone.rotation_quaternion = obj.rotation_quaternion
+                        else:
+                            rotation_cone.rotation_euler = obj.rotation_euler
+                    else:
+                        # 旋转模式不同，输出提示信息
+                        print(
+                            f"警告: {obj.name} 和 {rotation_cone_name} 的旋转模式不匹配 ({obj.rotation_mode} vs {rotation_cone.rotation_mode})，跳过旋转保存")
+
+                    # 重新生成约束器
+                    if constraints_data:
+                        # 清除现有约束器
+                        for constraint in obj.constraints:
+                            obj.constraints.remove(constraint)
+
+                        # 重新创建约束器
+                        for constraint_data in constraints_data:
+                            new_constraint = obj.constraints.new(
+                                constraint_data['type'])
+                            new_constraint.name = constraint_data['name']
+                            new_constraint.mute = constraint_data['mute']
+                            if hasattr(new_constraint, 'influence') and 'influence' in constraint_data:
+                                new_constraint.influence = constraint_data['influence']
+                            if 'target' in constraint_data and hasattr(new_constraint, 'target'):
+                                new_constraint.target = constraint_data['target']
+                            if 'subtarget' in constraint_data and hasattr(new_constraint, 'subtarget'):
+                                new_constraint.subtarget = constraint_data['subtarget']
+                            if 'owner_space' in constraint_data and hasattr(new_constraint, 'owner_space'):
+                                new_constraint.owner_space = constraint_data['owner_space']
+                            if 'target_space' in constraint_data and hasattr(new_constraint, 'target_space'):
+                                new_constraint.target_space = constraint_data['target_space']
+
                     modified_objects.append(f"旋转锥 {rotation_cone_name} (旋转)")
             except Exception as e:
                 print(f"Error: {e}")
@@ -321,7 +409,17 @@ def import_right_controller_info(hand_position: int):
     H_rotation_controller = bpy.data.objects['H_rotation_R']
     rotation_cone_name = f'Normal_P{hand_position}_H_rotation_R'
     rotation_cone = bpy.data.objects[rotation_cone_name]
-    H_rotation_controller.rotation_euler = rotation_cone.rotation_euler
+
+    # 检查旋转模式是否匹配
+    if H_rotation_controller.rotation_mode == rotation_cone.rotation_mode:
+        # 旋转模式相同，直接复制
+        if H_rotation_controller.rotation_mode == 'QUATERNION':
+            H_rotation_controller.rotation_quaternion = rotation_cone.rotation_quaternion
+        else:
+            H_rotation_controller.rotation_euler = rotation_cone.rotation_euler
+    else:
+        # 旋转模式不同，输出提示信息
+        print(f"警告: {H_rotation_controller.name} 和 {rotation_cone_name} 的旋转模式不匹配 ({H_rotation_controller.rotation_mode} vs {rotation_cone.rotation_mode})，跳过旋转导入")
 
     # 设置大拇指位置
     thumb_position_name = f'p{finger_positions["p"]}'
@@ -392,7 +490,17 @@ def set_right_controller_info_to_position_balls(hand_position: int):
     rotation_cone_name = f'Normal_P{hand_position}_H_rotation_R'
     rotation_cone = bpy.data.objects[rotation_cone_name]
     unlock_rotation(rotation_cone)
-    rotation_cone.rotation_euler = H_rotation_controller.rotation_euler
+
+    # 检查旋转模式是否匹配
+    if H_rotation_controller.rotation_mode == rotation_cone.rotation_mode:
+        # 旋转模式相同，直接复制
+        if H_rotation_controller.rotation_mode == 'QUATERNION':
+            rotation_cone.rotation_quaternion = H_rotation_controller.rotation_quaternion
+        else:
+            rotation_cone.rotation_euler = H_rotation_controller.rotation_euler
+    else:
+        # 旋转模式不同，输出提示信息
+        print(f"警告: {H_rotation_controller.name} 和 {rotation_cone_name} 的旋转模式不匹配 ({H_rotation_controller.rotation_mode} vs {rotation_cone.rotation_mode})，跳过旋转保存")
 
     # 记录大拇指位置
     thumb_position_name = f'p{finger_positions["p"]}'
@@ -498,7 +606,12 @@ def export_controller_info(file_name: str) -> None:
         type_name = name_parts[0]
         position_name = name_parts[1]
         controller_name = name_parts[2]
-        result['ROTATIONS'][controller_name][type_name][position_name] = obj.rotation_euler
+        # 统一转换为四元数保存
+        if obj.rotation_mode == 'QUATERNION':
+            # 已经是四元数，直接保存
+            result['ROTATIONS'][controller_name][type_name][position_name] = obj.rotation_quaternion
+        else:
+            result['ROTATIONS'][controller_name][type_name][position_name] = obj.rotation_euler
 
     for obj in RightHandPositions:
         obj_name = obj.name
