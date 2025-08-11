@@ -1,7 +1,7 @@
 from ..guitar.GuitarString import GuitarString
 from ..guitar.GuitarNote import GuitarNote
 from ..guitar.Guitar import Guitar
-from ..utils.utils import get_position_by_fret
+from ..utils.utils import lerp_by_fret
 from typing import List
 import math
 
@@ -108,7 +108,7 @@ class LeftFinger:
         if self.fret == targetFinger.fret:
             return 0
         else:
-            start_fret_position = get_position_by_fret(0, 0.5, self.fret)
-            end_fret_position = get_position_by_fret(0, 0.5, targetFinger.fret)
+            start_fret_position = lerp_by_fret(0, 0.5, self.fret)
+            end_fret_position = lerp_by_fret(0, 0.5, targetFinger.fret)
         return guitar._fullString * \
             abs(end_fret_position - start_fret_position)

@@ -223,7 +223,7 @@ def slerp(q1, q2, t):
     return s1 * q1 + s2 * q2
 
 
-def get_position_by_fret(fret: float, value_1: np.array, value_12: np.array) -> np.array:
+def lerp_by_fret(fret: float, value_1: np.array, value_12: np.array) -> np.array:
     """
     根据品格数计算位置，支持三元位置向量和四元数旋转
     :param fret: 品格数
