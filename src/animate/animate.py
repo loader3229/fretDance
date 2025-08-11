@@ -250,10 +250,6 @@ def animatedLeftHand(avatar_data: object, item: object, normal: array, max_strin
             max_string_index=max_string_index
         )
 
-    # 添加一点随机移动
-    random_move = random.rand(3) * 0.001
-    hand_position += random_move
-
     fingerInfos["H_L"] = hand_position.tolist()
 
     # --计算手臂IK，手旋转，大拇指位置，IK--
@@ -511,16 +507,24 @@ def twiceLerp(avatar_data: object, hand_state: int, value: str, valueType: str, 
     """
     这个函数实现了两层插值计算：
     1. 首先在相同手型内，根据品格(fret)进行插值计算 (1品到12品之间)
-    2. 然后根据hand_state的值，来判断如何插值。
+    2. 然后根据hand_state的值，计算出一个hand_weight参数，它代表当前手型在Outer/Inner手型与Normal手型之间的权重。
+    3. 根据食指所在的弦索引，计算出一个string_weight参数，它代表同一品格，但是在P01-P03手型之间的权重。
     
     hand_state的含义：
-    - hand_state = 0: 使用Normal手型，在两个Normal手型之间使用食指所在弦索引进行插值
-    - hand_state > 0: 在Outer和Normal手型之间插值，插值权重为 hand_state/max_string_index
-    - hand_state < 0: 在Normal和Inner手型之间插值，插值权重为 hand_state/max_string_index    
+    - hand_state = 0: 说明食指与小拇指在同一根弦上，意味着可以使用Normal手型进行计算。这时候会先用P0和P2、P1和P3进行品格插值;再将品格插值得到的两个结果使用弦索引进行插值，得到最终结果。
+    - hand_state > 0: 说明小拇指的弦索引比食指的弦索引大。这时候可以先计算出该品格上的P02_normal和P13_normal两个Normal手型，再计算出该品格上的P02_Outer手型。先用P02上的两个手型用hand_weight进行插值，再用P02插值的结果与P13的结果用string_weight进行插值，得到最终结果。
+    - hand_state < 0: 说明小拇指的弦索引比食指的弦索引小。这时候可以先计算出该品格上的P02_normal和P13_normal两个Normal手型，再计算出该品格上的P13_Inner手型。先用P02上的两个手型用hand_weight进行插值，再用P02插值结果与P13的结果用string_weight进行插值，得到最终结果。
+    
+    参数：
+    - avatar_data: 模型数据字典
+
+    - hand_state > 0: 在Outer和Normal手型之间插值，插值权重为 hand_weight
+    - hand_state < 0: 在Normal和Inner手型之间插值，插值权重为 hand_weight   
     """
     normal_rotation_is_quaternion = False
     # 这个值其实相当于食指的索引除以最大弦的索引，它与hand_state一起，可以表达出当前手型的食指和小拇指的弦索引，并且可以在三种不同手型中进行插值计算
     string_weight = stringIndex / max_string_index
+    hand_weight = abs(hand_state/max_string_index)
 
     if valueType == "position":
         data_dict = avatar_data['NORMAL_LEFT_HAND_POSITIONS']
@@ -538,17 +542,16 @@ def twiceLerp(avatar_data: object, hand_state: int, value: str, valueType: str, 
         # 检查是否为四元数（长度为4）或欧拉角（长度为3）
         normal_rotation_is_quaternion = len(p0) == 4
 
-    p_normal_fret_0 = lerp_by_fret(fret, p0, p2)
-    p_normal_fret_1 = lerp_by_fret(fret, p1, p3)
+    p_normal_fret_02 = lerp_by_fret(fret, p0, p2)
+    p_normal_fret_13 = lerp_by_fret(fret, p1, p3)
 
     if hand_state == 0:
         if normal_rotation_is_quaternion:
-            # 使用四元数球面线性插值
-            p_final = slerp(p_normal_fret_0, p_normal_fret_1, string_weight)
+            p_final = slerp(p_normal_fret_02, p_normal_fret_13, string_weight)
         else:
             # 其它情况无论是位置还是旋转值，都使用常规的线性插值
-            p_final = p_normal_fret_0 + \
-                (p_normal_fret_1 - p_normal_fret_0) * string_weight
+            p_final = p_normal_fret_02 + \
+                (p_normal_fret_13 - p_normal_fret_02) * string_weight
     elif hand_state > 0:
         outer_rotation_is_quaternion = False
         if valueType == "position":
@@ -562,14 +565,18 @@ def twiceLerp(avatar_data: object, hand_state: int, value: str, valueType: str, 
             # 检查是否为四元数
             outer_rotation_is_quaternion = len(out_p0) == 4
 
-        p_outer_fret_0 = lerp_by_fret(fret, out_p0, out_p2)
+        # 这个变量的后缀0，表示的是在0-2两个位置中进行品格插值以后，得到的结果，当然直接后缀写成零不太优雅，但姑且先这样写
+        p_outer = lerp_by_fret(fret, out_p0, out_p2)
 
         if outer_rotation_is_quaternion:
             # 四元数插值
-            p_final = slerp(p_outer_fret_0, p_normal_fret_1, string_weight)
+            p_normal = slerp(p_normal_fret_02, p_normal_fret_13, string_weight)
+            p_final = slerp(p_normal, p_outer, hand_weight)
         else:
-            p_final = p_outer_fret_0 + \
-                (p_normal_fret_1 - p_outer_fret_0) * string_weight
+            p_normal = p_normal_fret_02 + \
+                (p_normal_fret_13 - p_normal_fret_02) * string_weight
+            p_final = p_normal + \
+                (p_outer - p_normal) * hand_weight
     elif hand_state < 0:
         inner_rotation_is_quaternion = False
         if valueType == "position":
@@ -583,16 +590,19 @@ def twiceLerp(avatar_data: object, hand_state: int, value: str, valueType: str, 
 
             # 检查是否为四元数
             inner_rotation_is_quaternion = len(inner_p1) == 4
-
-        p_inner_fret_1 = lerp_by_fret(fret, inner_p1, inner_p3)
+        # 这个后缀1，是在1-3位置之间进行品格插值以后得到的结果，后缀姑且先写1
+        p_inner = lerp_by_fret(fret, inner_p1, inner_p3)
 
         if inner_rotation_is_quaternion:
             # 四元数插值
-            p_final = slerp(p_normal_fret_0, p_inner_fret_1, string_weight)
+            p_normal = slerp(p_normal_fret_02, p_normal_fret_13, string_weight)
+            p_final = slerp(p_normal, p_inner, hand_weight)
         else:
             # 标准线性插值
-            p_final = p_normal_fret_0 + \
-                (p_inner_fret_1 - p_normal_fret_0) * string_weight
+            p_normal = p_normal_fret_02 + \
+                (p_normal_fret_13 - p_normal_fret_02) * string_weight
+            p_final = p_normal + \
+                (p_inner - p_normal) * hand_weight
 
     return p_final
 
@@ -606,6 +616,8 @@ def twiceLerpBarreHand(
     max_string_index
 ):
     data_dict = None
+    barre_rotation_is_quaternion = False
+    string_weight = (stringIndex-2) / (max_string_index-2)
 
     if valueType == "position":
         data_dict = avatar_data['BARRE_LEFT_HAND_POSITIONS']
@@ -619,13 +631,19 @@ def twiceLerpBarreHand(
         p1 = array(data_dict["P1"])
         p2 = array(data_dict["P2"])
         p3 = array(data_dict["P3"])
+
+        # 检查是否为四元数（长度为4）或欧拉角（长度为3）
+        barre_rotation_is_quaternion = len(p0) == 4
     else:
         print("valueType error")
 
-    p_fret_0 = lerp_by_fret(fret, p0, p2)
-    p_fret_1 = lerp_by_fret(fret, p1, p3)
-    p_final = p_fret_0 + (p_fret_1 - p_fret_0) * \
-        (stringIndex-2) / (max_string_index-2)
+    p_fret_02 = lerp_by_fret(fret, p0, p2)
+    p_fret_13 = lerp_by_fret(fret, p1, p3)
+    if barre_rotation_is_quaternion:
+        p_final = slerp(p_fret_02, p_fret_13, string_weight)
+    else:
+        p_final = p_fret_02 + (p_fret_13 - p_fret_02) * \
+            (stringIndex-2) / (max_string_index-2)
 
     return p_final
 
