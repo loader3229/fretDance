@@ -3,6 +3,7 @@ from ..guitar.Guitar import Guitar
 import numpy as np
 from numpy import linalg
 import itertools
+from mathutils import Vector, Quaternion
 
 
 def convertNotesToChord(notes: List[int], guitar: Guitar) -> List[Dict[str, int]]:
@@ -263,3 +264,62 @@ def lerp_by_fret(fret: float, value_1: np.array, value_12: np.array) -> np.array
     else:
         # 三元向量情况：使用线性插值
         return value_1 + (value_12 - value_1) * t
+
+
+def getStringTouchPosition(H: np.array, F: np.array, N_quat: np.array, S: np.array, D_quat: np.array):
+    """
+    计算吉他弦与手指运动平面的交点
+
+    参数:
+    H, F: 手掌和手指位置 (Vector)
+    N_quat: 吉他面板法线方向的旋转四元数 (Quaternion) 或 欧拉角 (Euler)
+    S: 弦起点位置 (Vector)
+    D_quat: 弦方向的旋转四元数 (Quaternion) 或 欧拉角 (Euler)
+
+    返回:
+    交点位置 (Vector)
+    """
+    # 将旋转参数转换为方向向量
+    # 基准向量为(0,0,1),也就是blender里的z轴方向
+    base_vector = Vector((0, 0, 1))
+
+    if len(N_quat) == 4 or len(N_quat) == 3:
+        N_dir = Quaternion(N_quat) @ base_vector
+    else:
+        raise ValueError("N_quat参数长度错误")
+
+    if len(D_quat) == 4 or len(D_quat) == 3:
+        D_dir = Quaternion(D_quat) @ base_vector
+    else:
+        raise ValueError("D_quat参数长度错误")
+
+    # 确保方向向量单位化
+    N_dir.normalize()
+    D_dir.normalize()
+
+    # 计算平面内的向量HF = F - H
+    HF = F - H
+
+    # 计算平面法向量 M = HF × N_dir
+    M = np.cross(HF, N_dir)
+
+    # 检查平面法向量是否有效
+    if np.linalg.norm(M) < 1e-5:
+        raise ValueError("向量HF与N_dir平行，无法定义平面")
+
+    # 计算弦起点到手指的向量 FS = S - F
+    FS = S - F
+
+    # 计算分母：M·D_dir
+    denominator = np.dot(M, D_dir)
+
+    # 检查弦是否平行于平面
+    if abs(denominator) < 1e-5:
+        raise ValueError("弦方向与平面平行，无交点")
+
+    # 计算参数 t = - (M·HS) / (M·D_dir)
+    numerator = np.dot(M, FS)
+    t = -numerator / denominator
+
+    # 计算交点 P = S + t * D_dir
+    return S + t * D_dir
