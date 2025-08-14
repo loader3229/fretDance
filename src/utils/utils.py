@@ -266,15 +266,18 @@ def lerp_by_fret(fret: float, value_1: np.array, value_12: np.array) -> np.array
         return value_1 + (value_12 - value_1) * t
 
 
-def getStringTouchPosition(H: np.array, F: np.array, N_quat: np.array, S: np.array, D_quat: np.array):
+def getStringTouchPosition(H: np.array, F: np.array, N_quat: np.array, P0: np.array, P1: np.array, P2: np.array, P3: np.array,
+                           current_string_index: int, max_string_index: int):
     """
     计算吉他弦与手指运动平面的交点
 
     参数:
     H, F: 手掌和手指位置 (Vector)
-    N_quat: 吉他面板法线方向的旋转四元数 (Quaternion) 或 欧拉角 (Euler)
-    S: 弦起点位置 (Vector)
-    D_quat: 弦方向的旋转四元数 (Quaternion) 或 欧拉角 (Euler)
+    N_quat: 手背法线方向的旋转四元数 (Quaternion) 或 欧拉角 (Euler)
+    P0, P2: 最低音弦上的两个端点位置 (Vector)
+    P1, P3: 最高音弦上的两个端点位置 (Vector)
+    current_string_index: 当前弦的索引
+    max_string_index: 最大弦索引
 
     返回:
     交点位置 (Vector)
@@ -283,19 +286,27 @@ def getStringTouchPosition(H: np.array, F: np.array, N_quat: np.array, S: np.arr
     # 基准向量为(0,0,1),也就是blender里的z轴方向
     base_vector = Vector((0, 0, 1))
 
+    # 计算插值权重
+    if max_string_index == 0:
+        weight = 0
+    else:
+        weight = current_string_index / max_string_index
+
+    # 通过插值计算当前弦的两个端点
+    S = P0 + (P1 - P0) * weight  # 当前弦的一个端点
+    E = P2 + (P3 - P2) * weight  # 当前弦的另一个端点
+
+    # 计算弦的方向向量
+    D_dir = E - S
+    D_dir.normalize()
+
     if len(N_quat) == 4 or len(N_quat) == 3:
         N_dir = Quaternion(N_quat) @ base_vector
     else:
         raise ValueError("N_quat参数长度错误")
 
-    if len(D_quat) == 4 or len(D_quat) == 3:
-        D_dir = Quaternion(D_quat) @ base_vector
-    else:
-        raise ValueError("D_quat参数长度错误")
-
     # 确保方向向量单位化
     N_dir.normalize()
-    D_dir.normalize()
 
     # 计算平面内的向量HF = F - H
     HF = F - H
