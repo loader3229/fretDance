@@ -341,7 +341,7 @@ def main(avatar: str, midiFilePath: str, track_number: List[int], channel_number
                                 tempo_changes, ticks_per_beat, FPS)
 
         rightHand2Animation(avatar, right_hand_recorder_file,
-                            right_hand_animation_file, FPS)
+                            right_hand_animation_file, FPS, max_string_index)
 
     print('开始生成吉他弦动画数据')
     animated_guitar_string(left_hand_recorder_file,

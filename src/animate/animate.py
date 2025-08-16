@@ -332,10 +332,16 @@ def animatedLeftHand(avatar_data: object, item: object, normal: array, max_strin
     return fingerInfos
 
 
-def rightHand2Animation(avatar: str, recorder: str, animation: str, FPS: int) -> None:
+def rightHand2Animation(avatar: str, recorder: str, animation: str, FPS: int, max_string_index: int) -> None:
     data_for_animation = []
     # 这里是计算按弦需要保持的时间
     elapsed_frame = int(FPS / 15)
+    json_file = f'asset\controller_infos\{avatar}.json'
+    with open(json_file, 'r') as f:
+        avatar_data = json.load(f)
+        if not avatar_data:
+            raise Exception("avatar_data is empty")
+
     with open(recorder, "r") as f:
         handDicts = json.load(f)
         hand_count = len(handDicts)
@@ -347,6 +353,7 @@ def rightHand2Animation(avatar: str, recorder: str, animation: str, FPS: int) ->
             usedFingers = right_hand["usedFingers"]
             rightFingerPositions = right_hand["rightFingerPositions"]
 
+            # 这个usedFingers为空，表示是扫弦，所以播放时间要长一些
             time_multiplier = 2 if usedFingers == [] else 1
             played_frame = frame + elapsed_frame * time_multiplier
 
@@ -359,11 +366,11 @@ def rightHand2Animation(avatar: str, recorder: str, animation: str, FPS: int) ->
                     if next_frame > played_finished_frame + elapsed_frame:
                         hold_pose_frame = next_frame - elapsed_frame
 
-            ready = caculateRightHandFingers(avatar,
-                                             rightFingerPositions, usedFingers, isAfterPlayed=False)
+            ready = caculateRightHandFingers(avatar_data,
+                                             rightFingerPositions, usedFingers, max_string_index, isAfterPlayed=False)
 
-            played = caculateRightHandFingers(avatar,
-                                              rightFingerPositions, usedFingers, isAfterPlayed=True)
+            played = caculateRightHandFingers(avatar_data,
+                                              rightFingerPositions, usedFingers, max_string_index, isAfterPlayed=True)
 
             # 右手拨弦分为四个阶段，准备拨弦，拨弦，拨弦后维持动作，返回准备状态。
             # 如果与下一个音符之间的间隔足够长，就需要把这些动作都记录下来

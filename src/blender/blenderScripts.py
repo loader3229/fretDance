@@ -381,20 +381,27 @@ def set_left_controller_info_to_position_balls(position_name: Literal["P0", "P1"
         print(f"  - {modified_obj}")
 
 
-def import_right_controller_info(hand_position: int):
+def import_right_controller_info(hand_position: int, use_new_method: bool = False):
     """
     useage:这个方法用于在blender中快速将人物右手放置成某个特定的状态。方便进行下一步的微调
     """
     collection = 'FingerPositionControllers'
-    right_hand_test_positions = {
-        0: {"p": 2, "i": 0, "m": 0, "a": 0},
-        1: {"p": 3, "i": 1, "m": 1, "a": 0},
-        2: {"p": 4, "i": 2, "m": 1, "a": 0},
-        3: {"p": 5, "i": 4, "m": 3, "a": 2},
-        4: {"p": '_end', "i": '_end', "m": '_end', "a": '_end'}
-    }
+    if not use_new_method:
+        right_hand_positions = {
+            0: {"p": 2, "i": 0, "m": 0, "a": 0},
+            1: {"p": 3, "i": 1, "m": 1, "a": 0},
+            2: {"p": 4, "i": 2, "m": 1, "a": 0},
+            3: {"p": 5, "i": 4, "m": 3, "a": 2},
+            4: {"p": '_end', "i": '_end', "m": '_end', "a": '_end'}
+        }
+    else:
+        right_hand_positions = {
+            0: {"p": 0, "i": 0, "m": 0, "a": 0},
+            3: {"p": 3, "i": 3, "m": 3, "a": 3},
+            4: {"p": '_end', "i": '_end', "m": '_end', "a": '_end'}
+        }
 
-    finger_positions = right_hand_test_positions[hand_position]
+    finger_positions = right_hand_positions[hand_position]
 
     # 设置右手位置
     hand_position_name = f'h{hand_position}' if hand_position != 4 else 'h_end'
@@ -426,6 +433,10 @@ def import_right_controller_info(hand_position: int):
     T_R = bpy.data.objects['T_R']
     T_R.location = bpy.data.objects[thumb_position_name].location
 
+    thumb_pivot_name = f'P{hand_position}_TP_R'
+    TP_R = bpy.data.objects['TP_R']
+    TP_R.location = bpy.data.objects[thumb_pivot_name].location
+
     for obj in bpy.data.collections[collection].objects:
         obj_name = obj.name
         if obj_name.endswith("_L"):
@@ -447,18 +458,25 @@ def import_right_controller_info(hand_position: int):
             print(f"Error: {e}")
 
 
-def set_right_controller_info_to_position_balls(hand_position: int):
+def set_right_controller_info_to_position_balls(hand_position: int, use_new_method: bool = False):
     """
     useage:这个方法同import_right_controller_info，但是是将球的位置设置到控制器上
     """
     collection = 'FingerPositionControllers'
-    right_hand_test_positions = {
-        0: {"p": 2, "i": 0, "m": 0, "a": 0},
-        1: {"p": 3, "i": 1, "m": 1, "a": 0},
-        2: {"p": 4, "i": 2, "m": 1, "a": 0},
-        3: {"p": 5, "i": 4, "m": 3, "a": 2},
-        4: {"p": '_end', "i": '_end', "m": '_end', "a": '_end'}
-    }
+    if not use_new_method:
+        right_hand_positions = {
+            0: {"p": 2, "i": 0, "m": 0, "a": 0},
+            1: {"p": 3, "i": 1, "m": 1, "a": 0},
+            2: {"p": 4, "i": 2, "m": 1, "a": 0},
+            3: {"p": 5, "i": 4, "m": 3, "a": 2},
+            4: {"p": '_end', "i": '_end', "m": '_end', "a": '_end'}
+        }
+    else:
+        right_hand_positions = {
+            0: {"p": 0, "i": 0, "m": 0, "a": 0},
+            3: {"p": 3, "i": 3, "m": 3, "a": 3},
+            4: {"p": '_end', "i": '_end', "m": '_end', "a": '_end'}
+        }
 
     def unlock_location(obj):
         obj.lock_location[0] = False
@@ -470,7 +488,7 @@ def set_right_controller_info_to_position_balls(hand_position: int):
         obj.lock_rotation[1] = False
         obj.lock_rotation[2] = False
 
-    finger_positions = right_hand_test_positions[hand_position]
+    finger_positions = right_hand_positions[hand_position]
 
     # 记录右手位置
     hand_position_name = f'h{hand_position}' if hand_position != 4 else 'h_end'
@@ -508,6 +526,12 @@ def set_right_controller_info_to_position_balls(hand_position: int):
     thumb_position_ball = bpy.data.objects[thumb_position_name]
     unlock_location(thumb_position_ball)
     thumb_position_ball.location = T_R.location
+
+    thumb_pivot_name = f'P{hand_position}_TP_R'
+    TP_R = bpy.data.objects['TP_R']
+    thumb_pivot_ball = bpy.data.objects[thumb_pivot_name]
+    unlock_location(thumb_pivot_ball)
+    thumb_pivot_ball.location = TP_R.location
 
     for obj in bpy.data.collections[collection].objects:
         obj_name = obj.name
