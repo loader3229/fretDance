@@ -53,11 +53,6 @@ def clear_all_keyframe(collection_name=None):
                     print(
                         f"Clearing {len(fcurve.keyframe_points)} keyframes from {ob.name}")
                     fcurve.keyframe_points.clear()
-            # 清除约束关键帧
-            for constraint in ob.constraints:
-                if constraint.animation_data and constraint.animation_data.action:
-                    for fcurve in constraint.animation_data.action.fcurves:
-                        fcurve.keyframe_points.clear()
 
         # 清除形态键关键帧
         if hasattr(ob.data, "shape_keys"):
