@@ -298,15 +298,16 @@ def getStringTouchPosition(H: np.array, F: np.array, N_quat: np.array, P0: np.ar
 
     # 计算弦的方向向量
     D_dir = E - S
-    D_dir.normalize()
+    D_dir = D_dir / np.linalg.norm(D_dir)
 
-    if len(N_quat) == 4 or len(N_quat) == 3:
+    if len(N_quat) == 4:
         N_dir = Quaternion(N_quat) @ base_vector
+        # 确保方向向量单位化
+        N_dir = N_dir / np.linalg.norm(N_dir)
+    elif len(N_quat) == 3:
+        N_dir = N_quat
     else:
         raise ValueError("N_quat参数长度错误")
-
-    # 确保方向向量单位化
-    N_dir.normalize()
 
     # 计算平面内的向量HF = F - H
     HF = F - H
