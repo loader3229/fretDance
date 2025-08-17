@@ -166,7 +166,7 @@ def rest_finger_string_map_generator(unusedFingers: List[str], allStrings: List[
             prev_finger = pairing['finger']
             prev_string = pairing['string']
             prev_index = rightFingers[prev_finger]
-            if (current_finger_index > prev_index and cur_string > prev_string) or (current_finger_index < prev_index and cur_string < prev_string):
+            if (current_finger_index > prev_index and cur_string > prev_string + 1) or (current_finger_index < prev_index and cur_string < prev_string-1):
                 current_pairing_is_legal = False
 
         if current_pairing_is_legal:
@@ -472,7 +472,8 @@ def new_finger_position_method(avatar_data: object, positions: List[int], isArpe
 
         # 处理ima三个手指的拨弦，它们的逻辑是相似的
         for finger_char, finger_idx, rest_pos in finger_configs:
-            if finger_char in usedRightFingers:
+            # 小拇指的英文缩写和吉他用语里的左手小拇指不一样，导致这个判断的写法会啰嗦一点
+            if finger_char in usedRightFingers or finger_char == 'r' and 'a' in usedRightFingers:
                 current_string_index = positions[finger_idx]
                 target = rest_pos + finger_direct
                 touch_position = getStringTouchPosition(
