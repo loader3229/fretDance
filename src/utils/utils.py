@@ -1,4 +1,4 @@
-from typing import List, Dict, Tuple
+from typing import List, Dict, Any
 from ..guitar.Guitar import Guitar
 import numpy as np
 from numpy import linalg
@@ -6,7 +6,7 @@ import itertools
 from mathutils import Vector, Quaternion
 
 
-def convertNotesToChord(notes: List[int], guitar: Guitar) -> List[Dict[str, int]]:
+def convertNotesToChord(notes: List[int], guitar: Guitar) -> Any:
     """
     convert notes to a list of possible positions on the guitar. 将音符转换为吉他上的可能位置列表
     :param notes: notes. 多个音符
@@ -74,7 +74,7 @@ def convertNotesToChord(notes: List[int], guitar: Guitar) -> List[Dict[str, int]
     return result
 
 
-def convertChordTofingerPositions(chord: List[Tuple[Dict[str, int]]]) -> List[List[Dict[str, int]]]:
+def convertChordTofingerPositions(chord: List[Any]) -> List[List[Dict[str, int]]]:
     """
     convert chord to a list of possible hands. 将和弦转换为可能的手型列表
     :param chord: chord. 和弦
@@ -224,7 +224,7 @@ def slerp(q1, q2, t):
     return s1 * q1 + s2 * q2
 
 
-def lerp_by_fret(fret: float, value_1: np.array, value_12: np.array) -> np.array:
+def lerp_by_fret(fret: float, value_1: np.ndarray, value_12: np.ndarray) -> np.ndarray:
     """
     根据品格数计算位置，支持三元位置向量和四元数旋转
     :param fret: 品格数
@@ -266,7 +266,7 @@ def lerp_by_fret(fret: float, value_1: np.array, value_12: np.array) -> np.array
         return value_1 + (value_12 - value_1) * t
 
 
-def getStringTouchPosition(H: np.array, F: np.array, N_quat: np.array, P0: np.array, P1: np.array, P2: np.array, P3: np.array,
+def getStringTouchPosition(H: np.ndarray, F: np.ndarray, N_quat: np.ndarray, P0: np.ndarray, P1: np.ndarray, P2: np.ndarray, P3: np.ndarray,
                            current_string_index: int, max_string_index: int):
     """
     计算吉他弦与手指运动平面的交点

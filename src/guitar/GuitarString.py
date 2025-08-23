@@ -1,5 +1,5 @@
 from .MusicNote import MusicNote, KEYNOTES
-from typing import List
+from typing import List, Any
 
 
 class GuitarString():
@@ -10,7 +10,7 @@ class GuitarString():
     """
 
     def __init__(self, baseNote: MusicNote, stringIndex: int):
-        self._baseNote = baseNote
+        self._baseNote: MusicNote = baseNote
         self._stringIndex = stringIndex
 
     def getBaseNote(self) -> int:
@@ -38,7 +38,7 @@ def createGuitarStrings(notes: List[str]) -> List[GuitarString]:
     return guitar_string_list
 
 
-def getKeynoteByValue(value: str) -> int | bool:
+def getKeynoteByValue(value: str) -> Any:
     """
     transform the note to an integer value, C is 48. 将音符转换为一个整数值，C为48
     :param value: keynote such as `C`, `d`, `F1`. 音符，例如`C`, `d`, `F1`

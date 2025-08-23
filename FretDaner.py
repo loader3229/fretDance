@@ -362,4 +362,3 @@ if __name__ == "__main__":
     FPS = 30
     # 设定各弦音高
     guitar_string_notes = ["d", "b", "G", "D", "A", "D1"]
-    main(avatar, midiFilePath, FPS, guitar_string_notes)

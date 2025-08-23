@@ -145,6 +145,8 @@ class HandPoseRecordPool():
             if entropy < self.curHandPoseRecordPool[i].currentEntropy:
                 return i
 
+        return current_size
+
     def insert_new_hand_pose_recorder(self, newHandPoseRecorder, index):
         # 插入新的元素
         self.curHandPoseRecordPool.insert(index, newHandPoseRecorder)

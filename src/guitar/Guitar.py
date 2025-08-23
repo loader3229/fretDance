@@ -1,5 +1,5 @@
 from .GuitarString import GuitarString
-from typing import List
+from typing import List, Any
 
 
 class Guitar():
@@ -24,7 +24,7 @@ class Guitar():
     def getFullString(self) -> float:
         return self._fullString
 
-    def getHarmonicNotes(self) -> int:
+    def getHarmonicNotes(self) -> list[dict[str, Any]]:
         all_harm_notes = []
         for string in self.guitarStrings:
             base_note = string._baseNote

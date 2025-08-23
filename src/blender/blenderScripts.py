@@ -1,5 +1,5 @@
 # 一些在blender里跑的工具脚本
-import bpy
+import bpy  # type: ignore
 from typing import Literal, List
 
 
@@ -106,13 +106,13 @@ def remove_non_associated_bones(armature_name: str):
         if not mesh_obj:
             print(f"Can't find mesh {mesh_obj}")
             continue
-        for vertex_group in mesh_obj.vertex_groups:
-            weight_groups_names.append(vertex_group.name)
 
-    # 移除没有关联的顶点组
-    for vertex_group in mesh_obj.vertex_groups:
-        if vertex_group.name not in bone_names:
-            mesh_obj.vertex_groups.remove(vertex_group)
+        # 移除没有关联的顶点组
+        for vertex_group in mesh_obj.vertex_groups:
+            if vertex_group.name not in bone_names:
+                mesh_obj.vertex_groups.remove(vertex_group)
+            else:
+                weight_groups_names.append(vertex_group.name)
 
     # 切换到编辑模式
     bpy.context.view_layer.objects.active = armature_obj
@@ -146,11 +146,11 @@ def read_vertex_groups(mesh: str):
     return weight_groups_R, weight_groups_L
 
 
-def compare_LR_groups():
+def compare_LR_groups(mesh_name: str):
     """
     useage:这个方法用于在blender中比较左右两边的权重组的差异
     """
-    right, left = read_vertex_groups()
+    right, left = read_vertex_groups(mesh_name)
     remap_R = []
     for item in right:
         item = item[:-2]
@@ -452,6 +452,7 @@ def import_right_controller_info(hand_position: int, use_new_method: bool = Fals
                 position_ball_name = f'ch{finger_positions["a"]}'
             else:
                 print(f'Error happend. name: {obj_name}')
+                continue
             obj.location = bpy.data.objects[position_ball_name].location
 
         except Exception as e:
@@ -548,6 +549,7 @@ def set_right_controller_info_to_position_balls(hand_position: int, use_new_meth
                 position_ball_name = f'ch{finger_positions["a"]}'
             else:
                 print(f'Error happend. name: {obj_name}')
+                continue
             position_ball = bpy.data.objects[position_ball_name]
             unlock_location(position_ball)
             position_ball.location = obj.location
@@ -561,7 +563,7 @@ def add_random_rotation(time_range: int, time_step: int):
     useage:这个方法用于在blender中给头发和裙子添加一些摆动效果
     """
     import random
-    import bpy
+    import bpy  # type: ignore
     import mathutils
 
     # 获取所有选中的骨骼
@@ -840,6 +842,7 @@ def follow_lowest_foot(base_pivot_name: str, left_foot_name: str, right_foot_nam
     right_foot = bpy.data.objects[right_foot_name]
     pre_foot_position = [left_foot.location.copy(), right_foot.location.copy()]
     current_foot = None
+    current_foot_position = []
 
     for i in range(1, frames+1):
         if i > 1:

@@ -1,6 +1,6 @@
 from .LeftFinger import LeftFinger, PRESSSTATE
 from ..guitar.Guitar import Guitar
-from typing import List
+from typing import List, Any
 
 
 class LeftHand():
@@ -129,7 +129,7 @@ class LeftHand():
                         elif len(openFingersInFret) == 3:
                             strikethrough_text = print_strikethrough(
                                 str(openFingersInFret[0]) + str(openFingersInFret[1])+str(openFingersInFret[2]))
-                            text += strikethrough_text
+                            txt += strikethrough_text
                     else:
                         txt += " --"
 
@@ -207,7 +207,7 @@ class LeftHand():
 
         return handPosition
 
-    def generateNextHands(self, guitar: Guitar, fingerPositions: List[tuple[str, int]]) -> tuple['LeftHand', float]:
+    def generateNextHands(self, guitar: Guitar, fingerPositions: List[dict[str, int]]) -> Any:
         """
         :parma guitar: Guitar. 吉他
         :param chord: List of notes, including fret and string index and index of finger which pressed it. 音符列表，包括品格，弦的索引和按下它的手指的索引
@@ -243,9 +243,9 @@ class LeftHand():
 
         # --第一次循环，处理空弦音，并且计算各个手指的触弦总数,更新最高和最低按弦索引，更新使用的手指索引--
         for fingerPosition in fingerPositions:
-            fret = fingerPosition['fret']
+            fret = fingerPosition.get('fret', -1)
             finger_index = fingerPosition.get('finger', -1)
-            string_index = fingerPosition['index']
+            string_index = fingerPosition.get('index', -1)
             # --生成空弦音的手指--
             if finger_index == -1:
                 empty_finger = LeftFinger(
@@ -407,7 +407,7 @@ class LeftHand():
         use_barre = need_barre or keep_barre
         return all_fingers, diff, use_barre
 
-    def caculateDiff(self, all_fingers, newHandPosition, guitar: Guitar) -> float:
+    def caculateDiff(self, all_fingers: list[LeftFinger], newHandPosition, guitar: Guitar) -> float:
         entropy = 0
         hand_position_diff = abs(self.handPosition - newHandPosition)
         # 如果要换把，首先要抬指
@@ -429,7 +429,7 @@ class LeftHand():
                 entropy += distance
 
             # 计算按下手指的熵
-            if distance is not None and new_finger.press != PRESSSTATE["Open"]:
+            if distance is not None and new_finger and new_finger.press != PRESSSTATE["Open"]:
                 entropy += self.fingerDistanceTofretboard
 
         return entropy

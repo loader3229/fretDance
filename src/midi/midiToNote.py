@@ -1,5 +1,5 @@
 from mido import MidiFile
-from typing import List
+from typing import List, Any
 import random
 
 MIDI_INSTRUMENTS = [
@@ -81,7 +81,7 @@ def export_midi_info(midiFilePath: str) -> str:
     return result
 
 
-def midiToGuitarNotes(midiFilePath: str, useTracks: List[int], useChannel: int = 0, octave_down_checkbox: bool = False, capo_number: int = 0) -> object:
+def midiToGuitarNotes(midiFilePath: str, useTracks: List[int], useChannel: int = 0, octave_down_checkbox: bool = False, capo_number: int = 0) -> Any:
     """    
     :param midiFilePath: path of input midi file. 输入midi文件路径
     :param useTrack: track number to use. 使用的轨道编号

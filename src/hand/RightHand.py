@@ -1,4 +1,4 @@
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Any
 import itertools
 from numpy import array, linalg
 import numpy as np
@@ -6,7 +6,7 @@ import json
 from src.utils.caculateCrossPoint import get_cross_point
 from src.utils.utils import getStringTouchPosition
 
-rightFingers = {
+RightFingers = {
     "p": 0,
     "i": 1,
     "m": 2,
@@ -30,7 +30,7 @@ class RightHand():
 
         return validateRightHandByFingerPositions(usedFingers, rightFingerPositions, False)
 
-    def caculateDiff(self, otherRightHand: "RightHand") -> int:
+    def caculateDiff(self, otherRightHand: "RightHand") -> float:
         # 重复使用同一根手指的惩罚机制
         repeat_punish = 10
         diff = 0
@@ -80,7 +80,7 @@ def validateRightHandByFingerPositions(usedFingers, rightFingerPositions: List[i
     usedString = []
     used_p_strings = []
     for finger in usedFingers:
-        current_string = rightFingerPositions[rightFingers[finger]]
+        current_string = rightFingerPositions[RightFingers[finger]]
         if finger == 'p':
             used_p_strings.append(current_string)
         elif not repeated_fingers_checked:
@@ -105,23 +105,20 @@ def validateRightHandByFingerPositions(usedFingers, rightFingerPositions: List[i
     return True
 
 
-def finger_string_map_generator(allFingers: List[str], touchedStrings: List[int], unusedFingers: List[str], allStrings: List[int], prev_finger_string_map: List[Dict[str, Union[str, int]]] = None):
-    if prev_finger_string_map is None:
-        prev_finger_string_map = []
-
+def finger_string_map_generator(allFingers: List[str], touchedStrings: List[int], unusedFingers: List[str], allStrings: List[int], prev_finger_string_map: List[Dict[str, Any]] = []):
     if touchedStrings == []:
         for result in rest_finger_string_map_generator(unusedFingers, allStrings, prev_finger_string_map):
             yield result
 
     for current_finger, touchedString in itertools.product(allFingers, touchedStrings):
         current_pairing_is_legal = True
-        current_finger_index = rightFingers[current_finger]
+        current_finger_index = RightFingers[current_finger]
 
         # 检测当前配对组合是否和之前生成的配对组合有冲突
         for pairing in prev_finger_string_map:
             prev_finger = pairing['finger']
             prev_string = pairing['string']
-            prev_index = rightFingers[prev_finger]
+            prev_index = RightFingers[prev_finger]
             # 这里注意，finger是从pima递增的，但现实中它们拨的弦序号是递减的，所以判断合理性时要留意这一点
             if (current_finger_index > prev_index and touchedString >= prev_string) or (current_finger_index < prev_index and touchedString <= prev_string) or (current_finger_index == prev_index and abs(prev_string-touchedString) > 1):
                 current_pairing_is_legal = False
@@ -145,12 +142,10 @@ def finger_string_map_generator(allFingers: List[str], touchedStrings: List[int]
                 yield current_pairing + result
 
 
-def rest_finger_string_map_generator(unusedFingers: List[str], allStrings: List[int], prev_finger_string_map: List[Dict[str, Union[str, int]]] = None):
+def rest_finger_string_map_generator(unusedFingers: List[str], allStrings: List[int], prev_finger_string_map: List[Dict[Any, Any]] = []):
     """
     这个方法是将剩余的不拨弦的手指与弦进行配对
     """
-    if prev_finger_string_map == None:
-        prev_finger_string_map = []
 
     if unusedFingers == []:
         yield []
@@ -159,13 +154,13 @@ def rest_finger_string_map_generator(unusedFingers: List[str], allStrings: List[
     # 这里每次配对以后，不再移除已经配对的弦，因为不演奏的手指可以放在任一根弦上
     for current_finger, cur_string in itertools.product(unusedFingers, allStrings):
         current_pairing_is_legal = True
-        current_finger_index = rightFingers[current_finger]
+        current_finger_index = RightFingers[current_finger]
 
         # 检测当前配对组合是否和之前生成的配对组合有冲突
         for pairing in prev_finger_string_map:
             prev_finger = pairing['finger']
             prev_string = pairing['string']
-            prev_index = rightFingers[prev_finger]
+            prev_index = RightFingers[prev_finger]
             if (current_finger_index > prev_index and cur_string > prev_string + 1) or (current_finger_index < prev_index and cur_string < prev_string-1):
                 current_pairing_is_legal = False
 
@@ -206,7 +201,7 @@ def generatePossibleRightHands(touchedStrings: List[int], allFingers: List[str],
     return possibleCombinations
 
 
-def sort_fingers(finger_list: List[object]):
+def sort_fingers(finger_list: List[Any]):
     order = {'p': 0, 'i': 1, 'm': 2, 'a': 3}
     sorted_list = sorted(finger_list, key=lambda x: order[x['finger']])
     return [item['string'] for item in sorted_list]
@@ -223,11 +218,11 @@ def process_p_fingers(result):
     return result
 
 
-def get_usedFingers(finger_list: List[object], usedStrings: List[int]):
+def get_usedFingers(finger_list: List[Any], usedStrings: List[int]):
     return [item['finger'] for item in finger_list if item['string'] in usedStrings]
 
 
-def old_finger_position_method(avatar_data: object, positions: List[int], isArpeggio: bool, isAfterPlayed: bool, hand_position: float, usedRightFingers: List[str], fingerMoveDistanceWhilePlay: float):
+def old_finger_position_method(avatar_data: Any, rightFingerPositions: List[int], isArpeggio: bool, isAfterPlayed: bool, hand_position: float, usedRightFingers: List[str], fingerMoveDistanceWhilePlay: float):
     result = {}
     default_position = {
         "h": 2, "p": 4, "i": 2, "m": 1, "a": 0
@@ -290,7 +285,7 @@ def old_finger_position_method(avatar_data: object, positions: List[int], isArpe
         # 接下来计算每个手指的位置
         if "p" in usedRightFingers:
             T_R, t_move = caculateFingerPositionByHandPosition(H_R, h3,
-                                                               avatar_data, 0, positions[0])
+                                                               avatar_data, 0, rightFingerPositions[0])
             if isAfterPlayed:
                 T_R += t_move * fingerMoveDistanceWhilePlay * 1.2
         else:
@@ -299,7 +294,7 @@ def old_finger_position_method(avatar_data: object, positions: List[int], isArpe
         # 注意，因为ima指运动方向与p指相反，所以这里的移动方向是相反的
         if "i" in usedRightFingers:
             I_R, i_move = caculateFingerPositionByHandPosition(H_R, h3,
-                                                               avatar_data, 1, positions[1])
+                                                               avatar_data, 1, rightFingerPositions[1])
             if isAfterPlayed:
                 I_R -= i_move * fingerMoveDistanceWhilePlay
         else:
@@ -307,7 +302,7 @@ def old_finger_position_method(avatar_data: object, positions: List[int], isArpe
 
         if "m" in usedRightFingers:
             M_R, i_move = caculateFingerPositionByHandPosition(H_R, h3,
-                                                               avatar_data, 2, positions[2])
+                                                               avatar_data, 2, rightFingerPositions[2])
             if isAfterPlayed:
                 M_R -= i_move * fingerMoveDistanceWhilePlay
         else:
@@ -315,7 +310,7 @@ def old_finger_position_method(avatar_data: object, positions: List[int], isArpe
 
         if "a" in usedRightFingers:
             R_R, i_move = caculateFingerPositionByHandPosition(H_R, h3,
-                                                               avatar_data, 3, positions[3])
+                                                               avatar_data, 3, rightFingerPositions[3])
             if isAfterPlayed:
                 R_R -= i_move * fingerMoveDistanceWhilePlay
         else:
@@ -339,7 +334,7 @@ def old_finger_position_method(avatar_data: object, positions: List[int], isArpe
     return result
 
 
-def new_finger_position_method(avatar_data: object, positions: List[int], isArpeggio: bool, isAfterPlayed: bool, hand_position: float, usedRightFingers: List[str], fingerMoveDistanceWhilePlay: float, max_string_index: int) -> Dict:
+def new_finger_position_method(avatar_data: Any, rightFingerPositions: List[int], isArpeggio: bool, isAfterPlayed: bool, hand_position: float, usedRightFingers: List[str], fingerMoveDistanceWhilePlay: float, max_string_index: int) -> Dict:
     """
     新的定位方法基本上是这样的：
     如果是扫弦，那么直接读取扫弦状态的基准状态，然后结束。
@@ -444,7 +439,7 @@ def new_finger_position_method(avatar_data: object, positions: List[int], isArpe
 
         # 接下来计算每个手指的位置
         if "p" in usedRightFingers:
-            p_current_string_index = positions[0]
+            p_current_string_index = rightFingerPositions[0]
             # t_target就是大拇指运动时的目标位置，和其它手指都是向掌心运动不同，大拇指是往弦上运动的
             t_target = t_rest_postion + thumb_direction
             t_touch_position = getStringTouchPosition(
@@ -474,7 +469,7 @@ def new_finger_position_method(avatar_data: object, positions: List[int], isArpe
         for finger_char, finger_idx, rest_pos in finger_configs:
             # 小拇指的英文缩写和吉他用语里的左手小拇指不一样，导致这个判断的写法会啰嗦一点
             if finger_char in usedRightFingers or finger_char == 'r' and 'a' in usedRightFingers:
-                current_string_index = positions[finger_idx]
+                current_string_index = rightFingerPositions[finger_idx]
                 target = rest_pos + finger_direct
                 touch_position = getStringTouchPosition(
                     target, rest_pos, N_quat, P0, P1, P2, P3, current_string_index, max_string_index)
@@ -510,7 +505,7 @@ def new_finger_position_method(avatar_data: object, positions: List[int], isArpe
     return result
 
 
-def caculateRightHandFingers(avatar_data: dict, positions: List[int], usedRightFingers: List[str], max_string_index: int = 5, isAfterPlayed: bool = False) -> Dict:
+def caculateRightHandFingers(avatar_data: dict, rightFingerPositions: List[int], usedRightFingers: List[str], max_string_index: int = 5, isAfterPlayed: bool = False) -> Dict:
 
     use_new_finger_position_method = False
     right_hand_normal_data = avatar_data['RIGHT_HAND_LINES'].get(
@@ -527,12 +522,12 @@ def caculateRightHandFingers(avatar_data: dict, positions: List[int], usedRightF
 
     isArpeggio = usedRightFingers == []
 
-    hand_position = None
+    hand_position = 0
 
     if not isArpeggio:
         offsets = 0
         for usedfinger in usedRightFingers:
-            current_finger_position = positions[finger_indexs[usedfinger]]
+            current_finger_position = rightFingerPositions[finger_indexs[usedfinger]]
             mutilplier = 3 if usedfinger == 'p' else 1
             offsets += current_finger_position * mutilplier
 
@@ -567,15 +562,15 @@ def caculateRightHandFingers(avatar_data: dict, positions: List[int], usedRightF
 
     if use_new_finger_position_method:
         result = new_finger_position_method(
-            avatar_data, positions, isArpeggio, isAfterPlayed, hand_position, usedRightFingers, fingerMoveDistanceWhilePlay, max_string_index)
+            avatar_data, rightFingerPositions, isArpeggio, isAfterPlayed, hand_position, usedRightFingers, fingerMoveDistanceWhilePlay, max_string_index)
     else:
         result = old_finger_position_method(
-            avatar_data, positions, isArpeggio, isAfterPlayed, hand_position, usedRightFingers, fingerMoveDistanceWhilePlay)
+            avatar_data, rightFingerPositions, isArpeggio, isAfterPlayed, hand_position, usedRightFingers, fingerMoveDistanceWhilePlay)
 
     return result
 
 
-def caculateFingerPositionByHandPosition(H_R: array, h3: array, avatar_data: object, finger_index: int, string_index: int) -> array:
+def caculateFingerPositionByHandPosition(H_R: np.ndarray, h3: np.ndarray, avatar_data: Any, finger_index: int, string_index: int) -> Any:
     """
     这是老版本的计算手指位置的方法：
     参数：

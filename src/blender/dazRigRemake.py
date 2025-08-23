@@ -1,4 +1,4 @@
-import bpy
+import bpy  # type: ignore
 
 # 第一步，选移动所有模型到Collection
 
@@ -258,12 +258,12 @@ def add_constraints(Genesis_version):
     # 选中armature以后进入POSE模式
     bpy.ops.object.mode_set(mode='POSE')
 
-    def add_IK(bone_name: str, targetA_name: str, suffix: str, targetB_name: str = None, chain_count: int = 2):
+    def add_IK(bone_name: str, targetA_name: str, suffix: str, targetB_name: str = "", chain_count: int = 2):
         bone = bpy.context.active_object.pose.bones[bone_name + suffix]
         constraint = bone.constraints.new(type='IK')
         targetA = bpy.data.objects[targetA_name+suffix]
         constraint.target = targetA
-        if targetB_name is not None:
+        if targetB_name is not "":
             targetB = bpy.data.objects[targetB_name+suffix]
             constraint.pole_target = targetB
         constraint.chain_count = chain_count

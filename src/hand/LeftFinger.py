@@ -56,31 +56,6 @@ class LeftFinger:
               self.stringIndex, "string | ", self.fret, "fret |  ", list(PRESSSTATE.keys())[list(
                   PRESSSTATE.values()).index(self.press)])
 
-    def getTouchedPoint(self, guitarStrings: List[GuitarString]) -> List[GuitarNote]:
-        """
-        计算此手指此时的按弦点
-        :return: GuitarNote列表。
-        """
-        currentGuitarNotes = []
-
-        if self.press == PRESSSTATE["Pressed"] or self.press == PRESSSTATE['Keep']:
-            currentGuitarNotes.append(GuitarNote(guitarString, self.fret))
-        elif self.press == PRESSSTATE["Barre"]:
-            for guitarString in guitarStrings:
-                currentGuitarNotes.append(GuitarNote(guitarString, self.fret))
-        elif self.press == PRESSSTATE["Partial_barre_2_strings"]:
-            for guitarString in guitarStrings:
-                if guitarString.stringIndex > 1:
-                    continue
-                currentGuitarNotes.append(GuitarNote(guitarString, self.fret))
-        elif self.press == PRESSSTATE["Partial_barre_3_strings"]:
-            for guitarString in guitarStrings:
-                if guitarString.stringIndex > 2:
-                    continue
-                currentGuitarNotes.append(GuitarNote(guitarString, self.fret))
-
-        return currentGuitarNotes
-
     def distanceTo(self, guitar: Guitar, targetFinger: 'LeftFinger') -> float:
         """
         :param targetFinger: 目标手指

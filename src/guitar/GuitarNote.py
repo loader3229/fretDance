@@ -10,11 +10,11 @@ class GuitarNote:
     """
 
     def __init__(self, guitarString: GuitarString, fret: int):
-        self._guitarString = guitarString
-        self._fret = fret
+        self._guitarString: GuitarString = guitarString
+        self._fret: int = fret
         self.note = self.getNote()
 
     def getNote(self) -> MusicNote:
         if self.note:
             return self.note
-        return self._guitarString.baseNote.addKey(self._fret)
+        return self._guitarString._baseNote.add(self._fret)

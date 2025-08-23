@@ -1,4 +1,4 @@
-import bpy
+import bpy  # type: ignore
 import os
 import json
 
@@ -6,6 +6,7 @@ import json
 脚本的作用是给readyplay.me的avatar添加嘴唇动作
 需要提前把lip_sync_info生成，放在某个文件夹下
 lip_sync_info生成的方法可以使用./utils/make_lip_sync_info.py
+这个脚本说不定以后给角色添加弹唱功能的时候能用上……
 """
 
 value_map = {

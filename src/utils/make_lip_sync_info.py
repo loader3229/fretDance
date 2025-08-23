@@ -26,7 +26,7 @@ finish = time.time()
 print(f'Finished in {finish - start} seconds')
 
 
-def apply_lip_sync():
+async def apply_lip_sync():
     # 下面是一个简单的示例，演示如何读取嘴唇时间轴并将其应用于角色的形状键。
     # 在blender中使用./blender/lip_sync.py脚本，将嘴唇时间轴应用到角色的形状键上。
 
@@ -100,4 +100,4 @@ def apply_lip_sync():
         {"start": 3.92, "end": 4.22, "value": "X"}
     ]
 
-    apply_shape_key(mouthCues)
+    await apply_shape_key(mouthCues)

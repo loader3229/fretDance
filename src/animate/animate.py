@@ -5,6 +5,7 @@ from scipy.spatial.transform import Rotation as R
 from ..hand.LeftFinger import PRESSSTATE
 from ..hand.RightHand import caculateRightHandFingers, calculateRightPick
 from ..utils.utils import lerp_by_fret, slerp
+from typing import Any
 
 
 def leftHand2Animation(avatar: str, recorder: str, animation_json_path: str, tempo_changes, ticks_per_beat, FPS: float, max_string_index: int, disable_barre: bool = True) -> None:
@@ -152,7 +153,7 @@ def addPitchwheel(left_hand_recorder_file: str, pitch_wheel_map: list):
             json.dump(new_data, f, indent=4)
 
 
-def animatedLeftHand(avatar_data: object, item: object, normal: array, max_string_index: int, pitchwheel: int, rest_finger_distance=0.006, disable_barre: bool = False):
+def animatedLeftHand(avatar_data: object, item: Any, normal: np.ndarray, max_string_index: int, pitchwheel: int, rest_finger_distance=0.006, disable_barre: bool = False):
     leftHand = item["leftHand"]
     hand_fret = item["hand_position"]
     use_barre = item.get("use_barre", False) and not disable_barre
@@ -221,6 +222,8 @@ def animatedLeftHand(avatar_data: object, item: object, normal: array, max_strin
                 position_value_name = "R_L"
             elif fingerIndex == 4:
                 position_value_name = "P_L"
+            else:
+                position_value_name = "None"
 
         fingerInfos[position_value_name] = finger_position.tolist()
 
@@ -467,7 +470,7 @@ def ElectronicRightHand2Animation(avatar: str, right_hand_recorder_file: str, ri
         json.dump(data_for_animation, f, indent=4)
 
 
-def twiceLerpFingers(avatar_data: object, fret: float, stringIndex: int, max_string_index: int) -> array:
+def twiceLerpFingers(avatar_data: Any, fret: float, stringIndex: int, max_string_index: int) -> np.ndarray:
     p0 = array(avatar_data['LEFT_FINGER_POSITIONS']["P0"])
     p1 = array(avatar_data['LEFT_FINGER_POSITIONS']["P1"])
     p2 = array(avatar_data['LEFT_FINGER_POSITIONS']["P2"])
@@ -481,7 +484,7 @@ def twiceLerpFingers(avatar_data: object, fret: float, stringIndex: int, max_str
     return p_final
 
 
-def twiceLerpBarreFingers(avatar_data: object, fret: float, finger_string_index: int, max_string_index: int) -> array:
+def twiceLerpBarreFingers(avatar_data: Any, fret: float, finger_string_index: int, max_string_index: int) -> np.ndarray:
     barre_p0 = array(avatar_data['LEFT_FINGER_POSITIONS']["Barre_P0"])
     barre_p1 = array(avatar_data['LEFT_FINGER_POSITIONS']["Barre_P1"])
     barre_p2 = array(avatar_data['LEFT_FINGER_POSITIONS']["Barre_P2"])
@@ -508,7 +511,7 @@ def twiceLerpBarreFingers(avatar_data: object, fret: float, finger_string_index:
     return p_final
 
 
-def twiceLerp(avatar_data: object, hand_state: int, value: str, valueType: str, fret: float, stringIndex: int | float, max_string_index: int) -> array:
+def twiceLerp(avatar_data: Any, hand_state: int, value: str, valueType: str, fret: float, stringIndex: int | float, max_string_index: int) -> np.ndarray:
     data_dict = None
 
     """
@@ -584,7 +587,7 @@ def twiceLerp(avatar_data: object, hand_state: int, value: str, valueType: str, 
                 (p_normal_fret_13 - p_normal_fret_02) * string_weight
             p_final = p_normal + \
                 (p_outer - p_normal) * hand_weight
-    elif hand_state < 0:
+    else:
         inner_rotation_is_quaternion = False
         if valueType == "position":
             inner_data_dict = avatar_data['INNER_LEFT_HAND_POSITIONS']
@@ -642,7 +645,7 @@ def twiceLerpBarreHand(
         # 检查是否为四元数（长度为4）或欧拉角（长度为3）
         barre_rotation_is_quaternion = len(p0) == 4
     else:
-        print("valueType error")
+        raise ValueError("Invalid value type")
 
     p_fret_02 = lerp_by_fret(fret, p0, p2)
     p_fret_13 = lerp_by_fret(fret, p1, p3)

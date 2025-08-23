@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def get_cross_point(direction_line_start_point: np.array, direction_line_vector: np.array, guitar_suface_vector: np.array, string_line_start_point: np.array, string_line_vector: np.array) -> np.array:
+def get_cross_point(direction_line_start_point: np.ndarray, direction_line_vector: np.ndarray, guitar_suface_vector: np.ndarray, string_line_start_point: np.ndarray, string_line_vector: np.ndarray) -> np.ndarray:
 
     # 获得一个垂直于direction_line_vector和guitar_surface的向量
     normal_vector = np.cross(direction_line_vector, guitar_suface_vector)

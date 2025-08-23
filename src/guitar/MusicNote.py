@@ -1,4 +1,4 @@
-KEYNOTES: dict = {
+KEYNOTES: dict[str, int] = {
     "C": 48,
     "C#": 49,
     "D": 50,
@@ -20,11 +20,11 @@ class MusicNote:
     num: Number of notes, Calculated with C note (3rd fret on the 5th string of standard guitar tuning) as 48. 音符数，以C音（吉它标准调弦的5弦3品）为48来计算
     """
 
-    def __init__(self, num: int) -> None:
-        self.num = num
-        self.key = self.getKeynote()
+    def __init__(self, num: int):
+        self.num: int = num
+        self.key: str = self.getKeynote()
 
-    def getKeynote(self):
+    def getKeynote(self) -> str:
         """
         :return: keynote such as `C`, `d`, `F1`. 返回像`C`, `d`, `F1`这样的音符
         """
@@ -36,6 +36,9 @@ class MusicNote:
             if value == self.num:
                 return key
 
+        # 应该不会走到这里
+        return "c"
+
     def add(self, num: int) -> 'MusicNote':
         """
         Add num to the current note.
@@ -44,7 +47,7 @@ class MusicNote:
         return MusicNote(self.num + num)
 
 
-def getCurrentKeynotes(octave: int) -> dict:
+def getCurrentKeynotes(octave: int) -> dict[str, int]:
     """
     according to the octave, return the current keynotes. 根据八度值返回一个当前的音符字典
     :param octave: 八度
