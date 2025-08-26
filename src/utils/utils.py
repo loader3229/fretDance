@@ -243,9 +243,6 @@ def lerp_by_fret(fret: float, value_1: np.ndarray, value_12: np.ndarray) -> np.n
     ratio_1 = 2**(-1/12)
     ratio_12 = 2**(-12/12)  # 即 0.5
 
-    # 计算插值参数
-    t = (ratio_fret - ratio_1) / (ratio_12 - ratio_1)
-
     # 检查是否为四元数（长度为4）或位置向量（长度为3）
     is_scalar = isinstance(value_1, (int, float)) or isinstance(
         value_12, (int, float))
@@ -259,9 +256,19 @@ def lerp_by_fret(fret: float, value_1: np.ndarray, value_12: np.ndarray) -> np.n
             is_quaternion = False
 
     if is_quaternion:
+        # 计算插值参数
+        t_tan = (ratio_fret - ratio_1) / (ratio_12 - ratio_1)
+        # 计算两个四元数旋转值的夹角
+        angel_max = np.arccos(np.dot(value_1, value_12)) / \
+            np.linalg.norm(value_1)
+        tan_angel_max = np.tan(angel_max)
+        current_angel = tan_angel_max * t_tan
+        t = current_angel / angel_max
         # 四元数情况：使用球面线性插值
         return slerp(value_1, value_12, t)
     else:
+        # 计算插值参数
+        t = (ratio_fret - ratio_1) / (ratio_12 - ratio_1)
         # 三元向量情况：使用线性插值
         return value_1 + (value_12 - value_1) * t
 
