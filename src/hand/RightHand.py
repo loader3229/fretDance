@@ -666,7 +666,7 @@ def get_transformation_matrix(position, euler_angles):
 
 
 def calculateRightPick(avatar: str, stringIndex: int, isArpeggio: bool, should_stay_at_lower_position: bool) -> Dict:
-    json_file = f'asset\controller_infos\{avatar}.json'
+    json_file = f'asset/controller_infos/{avatar}.json'
     fingerMoveDistanceWhilePlay = 0.009
     with open(json_file, 'r') as f:
         data = json.load(f)
@@ -674,13 +674,18 @@ def calculateRightPick(avatar: str, stringIndex: int, isArpeggio: bool, should_s
     result = {}
     thumb_index = "p_end" if isArpeggio else f"p{stringIndex}"
     T_R = data['RIGHT_HAND_POSITIONS'][thumb_index][:]
-    if not isArpeggio:
-        move = data['RIGHT_HAND_LINES']["T_line"]['vector']
-        # 如果当前pick位置在当前弦的位置之下，那么就是在低位置，否则就是在高位置
-        multiplier = 1 if should_stay_at_lower_position else -1
-        T_R[0] += move[0] * fingerMoveDistanceWhilePlay * multiplier
-        T_R[1] += move[1] * fingerMoveDistanceWhilePlay * multiplier
-        T_R[2] += move[2] * fingerMoveDistanceWhilePlay * multiplier
+    # if not isArpeggio:
+    #     move = data['RIGHT_HAND_LINES']["T_line"]['vector']
+    #     # 如果当前pick位置在当前弦的位置之下，那么就是在低位置，否则就是在高位置
+    #     multiplier = 1 if should_stay_at_lower_position else -1
+    #     T_R[0] += move[0] * fingerMoveDistanceWhilePlay * multiplier
+    #     T_R[1] += move[1] * fingerMoveDistanceWhilePlay * multiplier
+    #     T_R[2] += move[2] * fingerMoveDistanceWhilePlay * multiplier
+    H_rotation_R = data['ROTATIONS']['H_rotation_R']["Normal"]['P0'][:]
+    rotate_angle = 1.0
+    H_rotation_R[1] += np.deg2rad(
+        rotate_angle) if should_stay_at_lower_position else -np.deg2rad(rotate_angle)
     result['T_R'] = T_R
+    result['H_rotation_R'] = H_rotation_R
 
     return result
