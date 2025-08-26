@@ -60,7 +60,7 @@ with gr.Blocks() as demo:
     with gr.Row() as avatar_selection_container:
         with gr.Column():
             midi_dropdown = gr.Dropdown(
-                midi_files, label="select midi 选择在目录asset/midi下面的MIDI 文件")
+                midi_files, label="select midi 选择在目录asset/midi下面的MIDI 文件")  # type: ignore
             submit_check_midi_button = gr.Button(
                 "scan midi info扫描 MIDI 文件信息")
             midi_info_text = gr.Textbox(label="MIDI 文件信息")
@@ -83,10 +83,10 @@ with gr.Blocks() as demo:
         # 创建一个新的容器
         with gr.Column() as custom_string_notes_container:
             avatar_dropdown = gr.Dropdown(
-                json_files, label="select player 选择角色，后缀为_E的角色是使用的电吉它，要确保midi文件也是电吉他的谱子")
+                json_files, label="select player 选择角色，后缀为_E的角色是使用的电吉它，要确保midi文件也是电吉他的谱子") # type: ignore
             # 添加吉他类型的下拉菜单
             guitar_type_dropdown = gr.Dropdown(
-                guitar_type_options.keys(), label="select guitar type 选择吉他类型")
+                guitar_type_options.keys(), label="select guitar type 选择吉他类型") # type: ignore
             # 将复选框和文本框添加到容器中
             use_custom_string_notes_checkbox = gr.Checkbox(
                 label="use custom string notes 是否使用自定义弦音高。勾选这个以后，吉它类型的选择将变为无效")
