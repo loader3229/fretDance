@@ -42,25 +42,44 @@ def move_deform_bones():
             bone.bone.layers = [i == 24 for i in range(32)]
 
 
-def move_MCH_bones():
+def move_MCH_bones(MCH_collection_name: str = "MCH"):
     """
-    useage:这个方法用于在blender中将所有的MCH骨骼移动到MCH层
+    usage:这个方法用于在blender中将所有的MCH骨骼移动到MCH层
     """
-    # 切换到pose模式
-    bpy.ops.object.mode_set(mode='POSE')
+    # 确保在姿态模式下操作
+    if bpy.context.mode != 'POSE':
+        bpy.ops.object.mode_set(mode='POSE')
+
+    # 获取当前活动的骨架对象
+    armature = bpy.context.active_object
+    if not armature or armature.type != 'ARMATURE':
+        print("错误: 没有选中的骨架对象")
+        return
 
     # 全选所有骨骼
     bpy.ops.pose.select_all(action='SELECT')
-    # 这里是需要文件中只有一个armature
-    MCH_collection = bpy.data.armatures[0].collections_all['MCH']
 
+    # 获取或创建MCH骨骼集合
+    mch_collection = None
+    for collection in armature.data.collections:
+        if collection.name == MCH_collection_name:
+            mch_collection = collection
+            break
+
+    # 如果没有找到MCH集合，则创建一个
+    if not mch_collection:
+        mch_collection = armature.data.collections.new(MCH_collection_name)
+
+    # 将所有包含'MCH'的骨骼分配到MCH集合中
     for pose_bone in bpy.context.selected_pose_bones:
         if 'MCH' in pose_bone.name:
-            for bone_collection in bpy.data.bpy.data.armatures[0].collections:
-                if bone_collection == MCH_collection:
-                    bone_collection.assign(pose_bone)
-                else:
-                    bone_collection.unassign(pose_bone)
+            # 将骨骼添加到MCH集合
+            mch_collection.assign(pose_bone.bone)
+
+            # 从其他集合中移除该骨骼
+            for collection in armature.data.collections:
+                if collection != mch_collection and pose_bone.bone.name in collection.bones:
+                    collection.unassign(pose_bone.bone)
 
 
 def remove_empty_vertex_group():
