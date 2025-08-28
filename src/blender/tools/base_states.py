@@ -44,6 +44,7 @@ class BaseState():
             "right_hand_controller": "H_R",
             "right_hand_ik_pivot_controller": "HP_R",
         }
+
         # 控制手掌旋转
         self.hand_rotation_controllers = {
             "left_hand_rotation_controller": "H_rotation_L",
@@ -65,6 +66,7 @@ class BaseState():
         # 控制右手手指位置
         self.right_finger_controllers = {
             "right_thumb_controller": "T_R",
+            "right_thumb_ik_pivot_controller": "TP_R",
             "right_index_controller": "I_R",
             "right_middle_controller": "M_R",
             "right_ring_controller": "R_R",
@@ -130,6 +132,7 @@ class BaseState():
             # 这里是用西班牙吉他的缩写代表手指，指弹吉他和bass需要记录所有五个手指在三种状态下的位置
             # 为什么是使用的状态是3和0，这都是历史遗留问题
             if instruments != Instruments.ELECTRIC_GUITAR:
+                self.right_hand_position_recorders[f'{right_hand_state}_tp'] = f'tp{right_hand_state.value}'
                 for finger in ['i', 'm', 'a', 'ch']:
                     self.right_hand_position_recorders[f'{right_hand_state}_{finger}'] = f'{finger}{right_hand_state.value}'
 
@@ -154,6 +157,10 @@ class BaseState():
             # 指弹吉它和bass演奏时要记录手背的朝向
             self.guidelines['left_hand_high_normal'] = 'right_hand_normal_p3'
             self.guidelines['left_hand_low_normal'] = 'right_hand_normal_p0'
+            self.guidelines['thumb_direction_high'] = 'right_thumb_direct_p3'
+            self.guidelines['thumb_direction_low'] = 'right_thumb_direct_p0'
+            self.guidelines['finger_direction_high'] = 'right_finger_direct_p3'
+            self.guidelines['finger_direction_low'] = 'right_finger_direct_p0'
 
     def add_controllers(self):
         """
@@ -254,8 +261,13 @@ class BaseState():
             self.create_or_update_object(
                 obj_name, "sphere", left_hand_collection)
 
-            # 添加右手位置记录器
+        # 添加右手位置记录器
         for recorder_name, obj_name in self.right_hand_position_recorders.items():
+            self.create_or_update_object(
+                obj_name, "sphere", right_hand_collection)
+
+        # # 添加右手手指位置记录器
+        for recorder_name, obj_name in self.right_finger_controllers.items():
             self.create_or_update_object(
                 obj_name, "sphere", right_hand_collection)
 
@@ -771,6 +783,7 @@ class BaseState():
         # 建立西班牙记指法到英文控制器的映射
         finger_mapping = {
             'p': 'T_R',   # 拇指
+            'tp': 'TP_R',  # 拇指ik pivot
             'i': 'I_R',   # 食指
             'm': 'M_R',   # 中指
             'a': 'R_R',   # 无名指
@@ -778,7 +791,7 @@ class BaseState():
         }
 
         current_fingers = ['p'] if self.instruments == Instruments.ELECTRIC_GUITAR else [
-            'p', 'i', 'm', 'a', 'ch']
+            'p', 'i', 'm', 'a', 'ch', 'tp']
 
         # 处理所有手指控制器（位置和旋转）
         print(f"\n传输右手手指控制器{source_suffix}到{target_suffix}:")
@@ -1039,7 +1052,7 @@ class BaseState():
 
 if __name__ == '__main__':
     # 创建一个实例
-    base_state = BaseState(Instruments.ELECTRIC_GUITAR)
+    base_state = BaseState(Instruments.FINGER_STYLE_GUITAR)
     # 检测缺失控件状态
     base_state.check_objects_status()
     # 初始化所有控件，运行一次就可以了，以后可以注释掉
@@ -1047,7 +1060,7 @@ if __name__ == '__main__':
 
     # 保存或者加载当前状态，注释掉不用的代码就可以切换
     direction = 'set'
-    direction = 'load'
+#    direction = 'load'
 
     # 手动选择左手状态
     base_position: BasePositions = BasePositions.P1
@@ -1057,12 +1070,12 @@ if __name__ == '__main__':
         base_position, left_hand_state, direction=direction)
 
     # 手动选择右手状态
-    right_hand_state: RightHandStates = RightHandStates.END
+    right_hand_state: RightHandStates = RightHandStates.HIGH
 
     base_state.transfer_right_hand_state(
         right_hand_state, direction=direction)
 
-    file_name = 'Mavuika_E.json'
+    file_name = 'Jeht.json'
     file_path = f'G:/fretDance/asset/controller_infos/{file_name}'
 
     # 全都设置好以后，导出控件信息
