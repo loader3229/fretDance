@@ -222,119 +222,7 @@ def get_usedFingers(finger_list: List[Any], usedStrings: List[int]):
     return [item['finger'] for item in finger_list if item['string'] in usedStrings]
 
 
-def old_finger_position_method(avatar_data: Any, rightFingerPositions: List[int], isArpeggio: bool, isAfterPlayed: bool, hand_position: float, usedRightFingers: List[str], fingerMoveDistanceWhilePlay: float):
-    result = {}
-    default_position = {
-        "h": 2, "p": 4, "i": 2, "m": 1, "a": 0
-    }
-
-    H_default = array(avatar_data['RIGHT_HAND_POSITIONS']
-                      [f'h{default_position["h"]}'])
-    T_defalut = array(avatar_data['RIGHT_HAND_POSITIONS']
-                      [f'p{default_position["p"]}'])
-    I_default = array(avatar_data['RIGHT_HAND_POSITIONS']
-                      [f'i{default_position["i"]}'])
-    M_default = array(avatar_data['RIGHT_HAND_POSITIONS']
-                      [f'm{default_position["m"]}'])
-    R_default = array(avatar_data['RIGHT_HAND_POSITIONS']
-                      [f'a{default_position["a"]}'])
-    # ch指是总是和a指在同一弦上
-    P_default = array(avatar_data['RIGHT_HAND_POSITIONS']
-                      [f'ch{default_position["a"]}'])
-
-    # 如果是扫弦，只计算h的位置，然后根据相对位置计算出其它手指的位置
-    if isArpeggio:
-        if isAfterPlayed:
-            H_R = array(avatar_data['RIGHT_HAND_POSITIONS']['h_end'])
-            H_Eulers = array(
-                avatar_data['ROTATIONS']['H_rotation_R']['Normal']['P3'])
-            HP_R = array(avatar_data['RIGHT_HAND_POSITIONS']['P3_HP_R'])
-            TP_R = array(avatar_data['RIGHT_HAND_POSITIONS']['P3_TP_R'])
-        else:
-            H_Eulers = array(
-                avatar_data['ROTATIONS']['H_rotation_R']['Normal']['P0'])
-            H_R = array(avatar_data['RIGHT_HAND_POSITIONS']['h0'])
-            HP_R = array(avatar_data['RIGHT_HAND_POSITIONS']['P0_HP_R'])
-            TP_R = array(avatar_data['RIGHT_HAND_POSITIONS']['P0_TP_R'])
-
-        T_R = array(H_R) + T_defalut - H_default
-        I_R = array(H_R) + I_default - H_default
-        M_R = array(H_R) + M_default - H_default
-        R_R = array(H_R) + R_default - H_default
-    else:
-        # 根据手掌的位置先计算所有确定手掌和手臂位置的点
-        h0 = array(avatar_data['RIGHT_HAND_POSITIONS']['h0'])
-        h3 = array(avatar_data['RIGHT_HAND_POSITIONS']['h3'])
-        H_R = h0 + hand_position * (h3 - h0) / 3
-
-        h_rotation_0 = array(
-            avatar_data['ROTATIONS']['H_rotation_R']['Normal']['P0'])
-        h_rotation_3 = array(
-            avatar_data['ROTATIONS']['H_rotation_R']['Normal']['P3'])
-        H_Eulers = h_rotation_0 + hand_position * \
-            (h_rotation_3 - h_rotation_0) / 3
-
-        hp_0 = array(avatar_data['RIGHT_HAND_POSITIONS']['P0_HP_R'])
-        hp_3 = array(avatar_data['RIGHT_HAND_POSITIONS']['P3_HP_R'])
-        HP_R = hp_0 + hand_position * (hp_3 - hp_0) / 3
-
-        tp_0 = array(avatar_data['RIGHT_HAND_POSITIONS']['P0_TP_R'])
-        tp_3 = array(avatar_data['RIGHT_HAND_POSITIONS']['P3_TP_R'])
-        TP_R = tp_0 + hand_position * (tp_3 - tp_0) / 3
-
-        # 接下来计算每个手指的位置
-        if "p" in usedRightFingers:
-            T_R, t_move = caculateFingerPositionByHandPosition(H_R, h3,
-                                                               avatar_data, 0, rightFingerPositions[0])
-            if isAfterPlayed:
-                T_R += t_move * fingerMoveDistanceWhilePlay * 1.2
-        else:
-            T_R = H_R + T_defalut - H_default
-
-        # 注意，因为ima指运动方向与p指相反，所以这里的移动方向是相反的
-        if "i" in usedRightFingers:
-            I_R, i_move = caculateFingerPositionByHandPosition(H_R, h3,
-                                                               avatar_data, 1, rightFingerPositions[1])
-            if isAfterPlayed:
-                I_R -= i_move * fingerMoveDistanceWhilePlay
-        else:
-            I_R = H_R + I_default - H_default
-
-        if "m" in usedRightFingers:
-            M_R, i_move = caculateFingerPositionByHandPosition(H_R, h3,
-                                                               avatar_data, 2, rightFingerPositions[2])
-            if isAfterPlayed:
-                M_R -= i_move * fingerMoveDistanceWhilePlay
-        else:
-            M_R = H_R + M_default - H_default
-
-        if "a" in usedRightFingers:
-            R_R, i_move = caculateFingerPositionByHandPosition(H_R, h3,
-                                                               avatar_data, 3, rightFingerPositions[3])
-            if isAfterPlayed:
-                R_R -= i_move * fingerMoveDistanceWhilePlay
-        else:
-            R_R = H_R + R_default - H_default
-
-    # ch指是不动的，根据相对位置计算出ch的位置
-    P_R = H_R + P_default - H_default
-
-    result.update({
-        'H_R': H_R.tolist(),
-        'H_rotation_R': H_Eulers.tolist(),
-        'HP_R': HP_R.tolist(),
-        'TP_R': TP_R.tolist(),
-        'T_R': T_R.tolist(),
-        'I_R': I_R.tolist(),
-        'R_R': R_R.tolist(),
-        'M_R': M_R.tolist(),
-        'P_R': P_R.tolist()
-    })
-
-    return result
-
-
-def new_finger_position_method(avatar_data: Any, rightFingerPositions: List[int], isArpeggio: bool, isAfterPlayed: bool, hand_position: float, usedRightFingers: List[str], fingerMoveDistanceWhilePlay: float, max_string_index: int) -> Dict:
+def new_finger_position_method(avatar_data: Any, rightFingerPositions: List[int], isArpeggio: bool, isAfterPlayed: bool, hand_position: float, usedRightFingers: List[str],  max_string_index: int) -> Dict:
     """
     新的定位方法基本上是这样的：
     如果是扫弦，那么直接读取扫弦状态的基准状态，然后结束。
@@ -348,22 +236,23 @@ def new_finger_position_method(avatar_data: Any, rightFingerPositions: List[int]
 
     if isArpeggio:
         if isAfterPlayed:
-            H_R = array(avatar_data['RIGHT_HAND_POSITIONS']['h_end'])
-            H_Eulers = array(
-                avatar_data['ROTATIONS']['H_rotation_R']['Normal']['P4'])
-            HP_R = array(avatar_data['RIGHT_HAND_POSITIONS']['P4_HP_R'])
-            TP_R = array(avatar_data['RIGHT_HAND_POSITIONS']['P4_TP_R'])
-            T_R = array(avatar_data['RIGHT_HAND_POSITIONS']['p_end'])
-            I_R = array(avatar_data['RIGHT_HAND_POSITIONS']['i_end'])
-            M_R = array(avatar_data['RIGHT_HAND_POSITIONS']['m_end'])
-            R_R = array(avatar_data['RIGHT_HAND_POSITIONS']['a_end'])
-            P_R = array(avatar_data['RIGHT_HAND_POSITIONS']['ch_end'])
+            H_R = array(avatar_data['RIGHT_HAND_POSITIONS']['Normal_Pend_H_R'])
+            H_rotation_R = array(
+                avatar_data['ROTATIONS']['H_rotation_R']['Normal']['Pend'])
+            HP_R = array(
+                avatar_data['RIGHT_HAND_POSITIONS']['Normal_Pend_HP_R'])
+            TP_R = array(avatar_data['RIGHT_HAND_POSITIONS']['tpend'])
+            T_R = array(avatar_data['RIGHT_HAND_POSITIONS']['pend'])
+            I_R = array(avatar_data['RIGHT_HAND_POSITIONS']['iend'])
+            M_R = array(avatar_data['RIGHT_HAND_POSITIONS']['mend'])
+            R_R = array(avatar_data['RIGHT_HAND_POSITIONS']['aend'])
+            P_R = array(avatar_data['RIGHT_HAND_POSITIONS']['chend'])
         else:
-            H_Eulers = array(
+            H_rotation_R = array(
                 avatar_data['ROTATIONS']['H_rotation_R']['Normal']['P0'])
-            H_R = array(avatar_data['RIGHT_HAND_POSITIONS']['h0'])
-            HP_R = array(avatar_data['RIGHT_HAND_POSITIONS']['P0_HP_R'])
-            TP_R = array(avatar_data['RIGHT_HAND_POSITIONS']['P0_TP_R'])
+            H_R = array(avatar_data['RIGHT_HAND_POSITIONS']['Normal_P0_H_R'])
+            HP_R = array(avatar_data['RIGHT_HAND_POSITIONS']['Normal_P0_HP_R'])
+            TP_R = array(avatar_data['RIGHT_HAND_POSITIONS']['tp0'])
             T_R = array(avatar_data['RIGHT_HAND_POSITIONS']['p0'])
             I_R = array(avatar_data['RIGHT_HAND_POSITIONS']['i0'])
             M_R = array(avatar_data['RIGHT_HAND_POSITIONS']['m0'])
@@ -371,23 +260,30 @@ def new_finger_position_method(avatar_data: Any, rightFingerPositions: List[int]
             P_R = array(avatar_data['RIGHT_HAND_POSITIONS']['ch0'])
     else:
         # 根据手掌的位置先计算所有确定手掌和手臂位置的点
-        h0 = array(avatar_data['RIGHT_HAND_POSITIONS']['h0'])
-        h3 = array(avatar_data['RIGHT_HAND_POSITIONS']['h3'])
+        h0 = array(avatar_data['RIGHT_HAND_POSITIONS']['Normal_P0_H_R'])
+        h3 = array(avatar_data['RIGHT_HAND_POSITIONS']['Normal_P3_H_R'])
         H_R = h0 + hand_position * (h3 - h0) / 3
 
         h_rotation_0 = array(
             avatar_data['ROTATIONS']['H_rotation_R']['Normal']['P0'])
         h_rotation_3 = array(
             avatar_data['ROTATIONS']['H_rotation_R']['Normal']['P3'])
-        H_Eulers = h_rotation_0 + hand_position * \
-            (h_rotation_3 - h_rotation_0) / 3
 
-        hp_0 = array(avatar_data['RIGHT_HAND_POSITIONS']['P0_HP_R'])
-        hp_3 = array(avatar_data['RIGHT_HAND_POSITIONS']['P3_HP_R'])
+        if len(h_rotation_0) == 3:
+            H_rotation_R = h_rotation_0 + hand_position * \
+                (h_rotation_3 - h_rotation_0) / 3
+        elif len(h_rotation_0) == 4:
+            hand_weight = hand_position / 3
+            H_rotation_R = slerp(h_rotation_0, h_rotation_3, hand_weight)
+        else:
+            raise Exception("Unknown hand rotation type")
+
+        hp_0 = array(avatar_data['RIGHT_HAND_POSITIONS']['Normal_P0_HP_R'])
+        hp_3 = array(avatar_data['RIGHT_HAND_POSITIONS']['Normal_P3_HP_R'])
         HP_R = hp_0 + hand_position * (hp_3 - hp_0) / 3
 
-        tp_0 = array(avatar_data['RIGHT_HAND_POSITIONS']['P0_TP_R'])
-        tp_3 = array(avatar_data['RIGHT_HAND_POSITIONS']['P3_TP_R'])
+        tp_0 = array(avatar_data['RIGHT_HAND_POSITIONS']['tp0'])
+        tp_3 = array(avatar_data['RIGHT_HAND_POSITIONS']['tp3'])
         TP_R = tp_0 + hand_position * (tp_3 - tp_0) / 3
 
         N_quat_0 = array(avatar_data['RIGHT_HAND_LINES']
@@ -436,6 +332,8 @@ def new_finger_position_method(avatar_data: Any, rightFingerPositions: List[int]
         ch0 = array(avatar_data['RIGHT_HAND_POSITIONS']['ch0'])
         ch3 = array(avatar_data['RIGHT_HAND_POSITIONS']['ch3'])
         ch_rest_position = ch0 + (ch3 - ch0) * hand_position / 3
+        # 定义手指运动的距离，是h0和h3之间的距离的12分之1
+        fingerMoveDistanceWhilePlay = np.linalg.norm(h0 - h3) / 12
 
         # 接下来计算每个手指的位置
         if "p" in usedRightFingers:
@@ -493,7 +391,7 @@ def new_finger_position_method(avatar_data: Any, rightFingerPositions: List[int]
 
     result.update({
         'H_R': H_R.tolist(),
-        'H_rotation_R': H_Eulers.tolist(),
+        'H_rotation_R': H_rotation_R.tolist(),
         'HP_R': HP_R.tolist(),
         'TP_R': TP_R.tolist(),
         'T_R': T_R.tolist(),
@@ -506,12 +404,6 @@ def new_finger_position_method(avatar_data: Any, rightFingerPositions: List[int]
 
 
 def caculateRightHandFingers(avatar_data: dict, rightFingerPositions: List[int], usedRightFingers: List[str], max_string_index: int = 5, isAfterPlayed: bool = False) -> Dict:
-
-    use_new_finger_position_method = False
-    right_hand_normal_data = avatar_data['RIGHT_HAND_LINES'].get(
-        'right_hand_normal_p0', None)
-    if right_hand_normal_data:
-        use_new_finger_position_method = True
 
     finger_indexs = {
         "p": 0,
@@ -558,14 +450,8 @@ def caculateRightHandFingers(avatar_data: dict, rightFingerPositions: List[int],
         """
         hand_position = 0.6 * average_offset - 0.6
 
-    fingerMoveDistanceWhilePlay = 0.003
-
-    if use_new_finger_position_method:
-        result = new_finger_position_method(
-            avatar_data, rightFingerPositions, isArpeggio, isAfterPlayed, hand_position, usedRightFingers, fingerMoveDistanceWhilePlay, max_string_index)
-    else:
-        result = old_finger_position_method(
-            avatar_data, rightFingerPositions, isArpeggio, isAfterPlayed, hand_position, usedRightFingers, fingerMoveDistanceWhilePlay)
+    result = new_finger_position_method(
+        avatar_data, rightFingerPositions, isArpeggio, isAfterPlayed, hand_position, usedRightFingers, max_string_index)
 
     return result
 
