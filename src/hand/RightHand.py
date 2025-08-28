@@ -665,7 +665,7 @@ def get_transformation_matrix(position, euler_angles):
     return transformation_matrix
 
 
-def calculateRightPick(avatar: str, stringIndex: int, isArpeggio: bool, should_stay_at_lower_position: bool) -> Dict:
+def calculateRightPick(avatar: str, stringIndex: int, isArpeggio: bool, should_stay_at_lower_position: bool, guitar_max_string_index: int = 5) -> Dict:
     json_file = f'asset/controller_infos/{avatar}.json'
     with open(json_file, 'r') as f:
         data = json.load(f)
@@ -684,6 +684,7 @@ def calculateRightPick(avatar: str, stringIndex: int, isArpeggio: bool, should_s
             'H_rotation_R': H_rotation_R
         }
     else:
+        # 这里的后缀high和low分别表示高音和低音，它刚刚好和stringIndex顺序相反
         tr_high = data['RIGHT_HAND_POSITIONS']['p3']
         tr_low = data['RIGHT_HAND_POSITIONS']['p0']
         h_r_high = data['RIGHT_HAND_POSITIONS']['Normal_P3_H_R']
@@ -697,7 +698,8 @@ def calculateRightPick(avatar: str, stringIndex: int, isArpeggio: bool, should_s
         fingerMoveDistanceWhilePlay = tr_diff / 20
 
         move = data['RIGHT_HAND_LINES']["T_line"]['vector']
-        thumb_weight = stringIndex / 5
+        # 因为相反，所以这里的权重应该是用1减一下
+        thumb_weight = 1-(stringIndex / (guitar_max_string_index + 1))
 
         T_R = np.array(tr_high) * thumb_weight + \
             np.array(tr_low) * (1 - thumb_weight)

@@ -405,10 +405,10 @@ def rightHand2Animation(avatar: str, recorder: str, animation: str, FPS: int, ma
         json.dump(data_for_animation, f)
 
 
-def ElectronicRightHand2Animation(avatar: str, right_hand_recorder_file: str, right_hand_animation_file: str, FPS: int) -> None:
+def ElectronicRightHand2Animation(avatar: str, right_hand_recorder_file: str, right_hand_animation_file: str, FPS: int, guitar_max_string_index: int = 5) -> None:
     pick_position = 5.5
     data_for_animation = []
-    # 这里是计算按弦需要保持的时间
+    # 这里是计算拨弦需要保持的时间
     elapsed_frame = FPS / 15.0
 
     with open(right_hand_recorder_file, "r") as f:
@@ -439,10 +439,10 @@ def ElectronicRightHand2Animation(avatar: str, right_hand_recorder_file: str, ri
             should_end_at_lower_position = not pick_on_low_position
 
             ready = calculateRightPick(
-                avatar, start_string, isArpeggio, should_start_at_lower_position)
+                avatar, start_string, isArpeggio, should_start_at_lower_position, guitar_max_string_index)
 
             played = calculateRightPick(
-                avatar, end_string, isArpeggio, should_end_at_lower_position)
+                avatar, end_string, isArpeggio, should_end_at_lower_position, guitar_max_string_index)
 
             if isArpeggio:
                 pick_position = -0.5
