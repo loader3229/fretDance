@@ -179,34 +179,34 @@ class BaseState():
             "Controllers", main_collection)
 
         # 创建左右手子集合
-        left_hand_collection = self.get_or_create_collection(
+        left_hand_controller_collection = self.get_or_create_collection(
             "Left_Hand_Controllers", controllers_collection)
-        right_hand_collection = self.get_or_create_collection(
+        right_hand_controller_collection = self.get_or_create_collection(
             "Right_Hand_Controllers", controllers_collection)
 
         # 添加左手控制器
         for controller_name, obj_name in self.left_hand_controllers.items():
             obj_type = "cone" if 'rotation' in controller_name else "cube"
             self.create_or_update_object(
-                obj_name, obj_type, left_hand_collection)
+                obj_name, obj_type, left_hand_controller_collection)
 
         # 添加右手控制器
         for controller_name, obj_name in self.right_hand_controllers.items():
             obj_type = "cone" if 'rotation' in controller_name else "cube"
             self.create_or_update_object(
-                obj_name, obj_type, right_hand_collection)
+                obj_name, obj_type, right_hand_controller_collection)
 
         # 添加左手手指控制器
         for controller_name, obj_name in self.left_finger_controllers.items():
             obj_type = "cone" if 'rotation' in controller_name else "cube"
             self.create_or_update_object(
-                obj_name, obj_type, left_hand_collection)
+                obj_name, obj_type, left_hand_controller_collection)
 
         # 添加右手手指控制器
         for controller_name, obj_name in self.right_finger_controllers.items():
             obj_type = "cone" if 'rotation' in controller_name else "cube"
             self.create_or_update_object(
-                obj_name, obj_type, right_hand_collection)
+                obj_name, obj_type, right_hand_controller_collection)
 
         # 添加手部旋转控制器
         for controller_name, obj_name in self.hand_rotation_controllers.items():
@@ -214,10 +214,10 @@ class BaseState():
             # 根据名称判断是左手还是右手
             if '_L' in obj_name:
                 self.create_or_update_object(
-                    obj_name, obj_type, left_hand_collection)
+                    obj_name, obj_type, left_hand_controller_collection)
             else:
                 self.create_or_update_object(
-                    obj_name, obj_type, right_hand_collection)
+                    obj_name, obj_type, right_hand_controller_collection)
 
     def add_recorders(self):
         """
@@ -236,9 +236,9 @@ class BaseState():
             "Recorders", main_collection)
 
         # 创建左右手子集合
-        left_hand_collection = self.get_or_create_collection(
+        left_hand_recorder_collection = self.get_or_create_collection(
             "Left_Hand_Recorders", recorders_collection)
-        right_hand_collection = self.get_or_create_collection(
+        right_hand_recorder_collection = self.get_or_create_collection(
             "Right_Hand_Recorders", recorders_collection)
 
         # 创建辅助线子集合
@@ -248,33 +248,23 @@ class BaseState():
         # 添加指板位置记录器
         for recorder_name, obj_name in self.guitar_fret_positions.items():
             self.create_or_update_object(
-                obj_name, "sphere", left_hand_collection)
+                obj_name, "sphere", left_hand_recorder_collection)
 
         # 添加左手位置记录器
         for recorder_name, obj_name in self.left_hand_position_recorders.items():
             obj_type = "cone_empty" if 'rotation' in recorder_name else "sphere"
             self.create_or_update_object(
-                obj_name, obj_type, left_hand_collection)
-
-        # 添加左手手指位置记录器
-        for recorder_name, obj_name in self.left_finger_controllers.items():
-            self.create_or_update_object(
-                obj_name, "sphere", left_hand_collection)
+                obj_name, obj_type, left_hand_recorder_collection)
 
         # 添加右手位置记录器
         for recorder_name, obj_name in self.right_hand_position_recorders.items():
             self.create_or_update_object(
-                obj_name, "sphere", right_hand_collection)
-
-        # # 添加右手手指位置记录器
-        for recorder_name, obj_name in self.right_finger_controllers.items():
-            self.create_or_update_object(
-                obj_name, "sphere", right_hand_collection)
+                obj_name, "sphere", right_hand_recorder_collection)
 
         # 添加右手旋转记录器
         for recorder_name, obj_name in self.right_hand_rotation_recorders.items():
             self.create_or_update_object(
-                obj_name, "cone_empty", right_hand_collection)
+                obj_name, "cone_empty", right_hand_recorder_collection)
 
         # 添加辅助线对象
         for guideline_name, obj_name in self.guidelines.items():
@@ -577,8 +567,13 @@ class BaseState():
         if hasattr(self, 'pre_obj_names') and obj_name in self.pre_obj_names:
             self.pre_obj_names.remove(obj_name)
 
-        # 如果物体已存在，直接返回
+        # 如果物体已存在
         if obj_name in bpy.data.objects:
+            obj = bpy.data.objects[obj_name]
+            # 将物体移动到指定集合
+            if collection and obj.name not in collection.objects:
+                self.move_object_to_collection(obj, collection)
+            # 直接返回
             return bpy.data.objects[obj_name]
 
         # 根据类型创建不同的物体
