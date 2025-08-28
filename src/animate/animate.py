@@ -265,7 +265,7 @@ def animatedLeftHand(avatar_data: object, item: Any, normal: np.ndarray, max_str
             stringIndex=barre_finger_string_index,
             max_string_index=max_string_index
         )
-        hand_rotation_y = twiceLerpBarreHand(
+        hand_rotation_l = twiceLerpBarreHand(
             avatar_data=avatar_data,
             value="H_rotation_L",
             valueType="rotation",
@@ -299,7 +299,7 @@ def animatedLeftHand(avatar_data: object, item: Any, normal: np.ndarray, max_str
             stringIndex=index_finger_string_number,
             max_string_index=max_string_index
         )
-        hand_rotation_y = twiceLerp(
+        hand_rotation_l = twiceLerp(
             avatar_data=avatar_data,
             hand_state=hand_state,
             value="H_rotation_L",
@@ -328,7 +328,7 @@ def animatedLeftHand(avatar_data: object, item: Any, normal: np.ndarray, max_str
         )
 
     fingerInfos["HP_L"] = hand_IK_pivot_position.tolist()
-    fingerInfos["H_rotation_L"] = hand_rotation_y.tolist()
+    fingerInfos["H_rotation_L"] = hand_rotation_l.tolist()
     fingerInfos["T_L"] = thumb_position.tolist()
     fingerInfos["TP_L"] = thumb_IK_pivot_position.tolist()
 
@@ -485,24 +485,13 @@ def twiceLerpFingers(avatar_data: Any, fret: float, stringIndex: int, max_string
 
 
 def twiceLerpBarreFingers(avatar_data: Any, fret: float, finger_string_index: int, max_string_index: int) -> np.ndarray:
-    barre_p0 = array(avatar_data['LEFT_FINGER_POSITIONS']["Barre_P0"])
-    barre_p1 = array(avatar_data['LEFT_FINGER_POSITIONS']["Barre_P1"])
-    barre_p2 = array(avatar_data['LEFT_FINGER_POSITIONS']["Barre_P2"])
-    barre_p3 = array(avatar_data['LEFT_FINGER_POSITIONS']["Barre_P3"])
+    barre_p0 = array(avatar_data['BARRE_LEFT_HAND_POSITIONS']["P0"]["I_L"])
+    barre_p1 = array(avatar_data['BARRE_LEFT_HAND_POSITIONS']["P1"]["I_L"])
+    barre_p2 = array(avatar_data['BARRE_LEFT_HAND_POSITIONS']["P2"]["I_L"])
+    barre_p3 = array(avatar_data['BARRE_LEFT_HAND_POSITIONS']["P3"]["I_L"])
 
     p_fret_0 = lerp_by_fret(fret, barre_p0, barre_p2)
     p_fret_1 = lerp_by_fret(fret, barre_p1, barre_p3)
-
-    # 横按最小是从第三弦开始（索引为2），最多横按到最后一根弦（索引为max_string_index）
-    # 对finger_string_index进行clamp处理，确保它在有效范围内
-    # clamped_finger_string_index = max(
-    #     2, min(finger_string_index, max_string_index))
-
-    # 如果原始值被clamp了，可能需要记录日志或处理异常情况
-    # if clamped_finger_string_index != finger_string_index:
-    #     # 可选：添加日志记录
-    #     # print(f"Warning: finger_string_index clamped from {finger_string_index} to {clamped_finger_string_index}")
-    #     pass
 
     # 使用clamp后的值进行计算
     p_final = p_fret_0 + (p_fret_1 - p_fret_0) * \
@@ -635,6 +624,9 @@ def twiceLerpBarreHand(
         p1 = array(data_dict["P1"][value])
         p2 = array(data_dict["P2"][value])
         p3 = array(data_dict["P3"][value])
+        if p0 is None or p1 is None or p2 is None or p3 is None or \
+                not p0.size or not p1.size or not p2.size or not p3.size:
+            raise ValueError(f"Invalid position data:{value}")
     elif valueType == "rotation":
         data_dict = avatar_data["ROTATIONS"]['H_rotation_L']["Barre"]
         p0 = array(data_dict["P0"])
