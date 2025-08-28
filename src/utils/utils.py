@@ -199,6 +199,10 @@ def slerp(q1, q2, t):
     q1 = q1 / linalg.norm(q1)
     q2 = q2 / linalg.norm(q2)
 
+    # 如果两个四元数相同，直接返回
+    if np.allclose(q1, q2):
+        return q1
+
     # 计算点积
     dot = np.dot(q1, q2)
 
@@ -254,6 +258,12 @@ def lerp_by_fret(fret: float, value_1: np.ndarray, value_12: np.ndarray) -> np.n
         except TypeError:
             # 如果无法获取长度，则不是四元数
             is_quaternion = False
+            if len(value_1) != len(value_12):
+                print(fret)
+                print(value_1)
+                print(value_12)
+                raise ValueError(
+                    "value_1 and value_12 must have the same length.")
 
     if is_quaternion:
         # 计算插值参数
