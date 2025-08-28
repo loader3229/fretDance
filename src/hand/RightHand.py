@@ -4,7 +4,7 @@ from numpy import array, linalg
 import numpy as np
 import json
 from src.utils.caculateCrossPoint import get_cross_point
-from src.utils.utils import getStringTouchPosition
+from src.utils.utils import getStringTouchPosition, slerp
 
 RightFingers = {
     "p": 0,
@@ -667,25 +667,55 @@ def get_transformation_matrix(position, euler_angles):
 
 def calculateRightPick(avatar: str, stringIndex: int, isArpeggio: bool, should_stay_at_lower_position: bool) -> Dict:
     json_file = f'asset/controller_infos/{avatar}.json'
-    fingerMoveDistanceWhilePlay = 0.009
     with open(json_file, 'r') as f:
         data = json.load(f)
 
     result = {}
-    thumb_index = "p_end" if isArpeggio else f"p{stringIndex}"
-    T_R = data['RIGHT_HAND_POSITIONS'][thumb_index][:]
-    # if not isArpeggio:
-    #     move = data['RIGHT_HAND_LINES']["T_line"]['vector']
-    #     # 如果当前pick位置在当前弦的位置之下，那么就是在低位置，否则就是在高位置
-    #     multiplier = 1 if should_stay_at_lower_position else -1
-    #     T_R[0] += move[0] * fingerMoveDistanceWhilePlay * multiplier
-    #     T_R[1] += move[1] * fingerMoveDistanceWhilePlay * multiplier
-    #     T_R[2] += move[2] * fingerMoveDistanceWhilePlay * multiplier
-    H_rotation_R = data['ROTATIONS']['H_rotation_R']["Normal"]['P0'][:]
-    rotate_angle = 1.0
-    H_rotation_R[1] += np.deg2rad(
-        rotate_angle) if should_stay_at_lower_position else -np.deg2rad(rotate_angle)
-    result['T_R'] = T_R
-    result['H_rotation_R'] = H_rotation_R
+
+    if isArpeggio:
+        T_R = data['RIGHT_HAND_POSITIONS']['pend']
+        H_R = data['RIGHT_HAND_POSITIONS']['Normal_Pend_H_R']
+        HP_R = data['RIGHT_HAND_POSITIONS']['Normal_Pend_HP_R']
+        H_rotation_R = data['ROTATIONS']['H_rotation_R']['Normal']['Pend']
+        result = {
+            'T_R': T_R,
+            'H_R': H_R,
+            'HP_R': HP_R,
+            'H_rotation_R': H_rotation_R
+        }
+    else:
+        tr_high = data['RIGHT_HAND_POSITIONS']['p3']
+        tr_low = data['RIGHT_HAND_POSITIONS']['p0']
+        h_r_high = data['RIGHT_HAND_POSITIONS']['Normal_P3_H_R']
+        h_r_low = data['RIGHT_HAND_POSITIONS']['Normal_P0_H_R']
+        hp_r_high = data['RIGHT_HAND_POSITIONS']['Normal_P3_HP_R']
+        hp_r_low = data['RIGHT_HAND_POSITIONS']['Normal_P0_HP_R']
+        h_rotation_r_high = data['ROTATIONS']['H_rotation_R']['Normal']['P3']
+        h_rotation_r_low = data['ROTATIONS']['H_rotation_R']['Normal']['P0']
+
+        tr_diff = np.linalg.norm(np.array(tr_high) - np.array(tr_low))
+        fingerMoveDistanceWhilePlay = tr_diff / 20
+
+        move = data['RIGHT_HAND_LINES']["T_line"]['vector']
+        thumb_weight = stringIndex / 5
+
+        T_R = np.array(tr_high) * thumb_weight + \
+            np.array(tr_low) * (1 - thumb_weight)
+        H_R = np.array(h_r_high) * thumb_weight + \
+            np.array(h_r_low) * (1 - thumb_weight)
+        HP_R = np.array(hp_r_high) * thumb_weight + \
+            np.array(hp_r_low) * (1 - thumb_weight)
+        H_rotation_R = slerp(h_rotation_r_high, h_rotation_r_low, thumb_weight)
+
+        # 如果当前pick位置在当前弦的位置之下，那么就是在低位置，否则就是在高位置
+        multiplier = 1 if should_stay_at_lower_position else -1
+        T_R += np.array(move) * fingerMoveDistanceWhilePlay * multiplier
+
+        result = {
+            'T_R': T_R.tolist(),
+            'H_R': H_R.tolist(),
+            'HP_R': HP_R.tolist(),
+            'H_rotation_R': H_rotation_R.tolist(),
+        }
 
     return result
