@@ -187,7 +187,7 @@ def rotate_vector(euler_angles: list):
     return rotated_vector
 
 
-def slerp(q1, q2, t):
+def slerp(q1, q2, t_tan):
     """
     四元数球面线性插值 (Spherical Linear Interpolation)
     :param q1: 第一个四元数 [x, y, z, w]
@@ -202,6 +202,13 @@ def slerp(q1, q2, t):
     # 如果两个四元数相同，直接返回
     if np.allclose(q1, q2):
         return q1
+
+    # 计算两个四元数旋转值的夹角
+    angel_max = np.arccos(np.dot(q1, q2)) / \
+        np.linalg.norm(q1)
+    tan_angel_max = np.tan(angel_max)
+    current_angel = tan_angel_max * t_tan
+    t = current_angel / angel_max
 
     # 计算点积
     dot = np.dot(q1, q2)
@@ -268,14 +275,9 @@ def lerp_by_fret(fret: float, value_1: np.ndarray, value_12: np.ndarray) -> np.n
     if is_quaternion:
         # 计算插值参数
         t_tan = (ratio_fret - ratio_1) / (ratio_12 - ratio_1)
-        # 计算两个四元数旋转值的夹角
-        angel_max = np.arccos(np.dot(value_1, value_12)) / \
-            np.linalg.norm(value_1)
-        tan_angel_max = np.tan(angel_max)
-        current_angel = tan_angel_max * t_tan
-        t = current_angel / angel_max
+
         # 四元数情况：使用球面线性插值
-        return slerp(value_1, value_12, t)
+        return slerp(value_1, value_12, t_tan)
     else:
         # 计算插值参数
         t = (ratio_fret - ratio_1) / (ratio_12 - ratio_1)
