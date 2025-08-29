@@ -14,7 +14,7 @@ def leftHand2Animation(avatar: str, recorder: str, animation_json_path: str, tem
     :params animation_json_path: the path of the file store information for animation
     :params BPM: the BPM of the music
     :params FPS: the FPS of the animation"""
-    json_file = f'asset\controller_infos\{avatar}.json'
+    json_file = f'asset\\controller_infos\\{avatar}.json'
     with open(json_file, "r") as f:
         avatar_data = json.load(f)
     finger_position_p0 = array(avatar_data['LEFT_FINGER_POSITIONS']["P0"])

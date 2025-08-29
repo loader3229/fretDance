@@ -1,6 +1,6 @@
 ## FretDance
 
-![pic](asset\img\20240517043331.png)
+![pic](asset/img/20240517043331.png)
 
 [中文说明点击这里](readMeCN.md)
 
