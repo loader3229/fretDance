@@ -332,8 +332,8 @@ def new_finger_position_method(avatar_data: Any, rightFingerPositions: List[int]
         ch0 = array(avatar_data['RIGHT_HAND_POSITIONS']['ch0'])
         ch3 = array(avatar_data['RIGHT_HAND_POSITIONS']['ch3'])
         ch_rest_position = ch0 + (ch3 - ch0) * hand_position / 3
-        # 定义手指运动的距离，是h0和h3之间的距离的12分之1
-        fingerMoveDistanceWhilePlay = np.linalg.norm(h0 - h3) / 12
+        # 定义手指运动的距离，是h0和h3之间的距离的20分之1
+        fingerMoveDistanceWhilePlay = np.linalg.norm(h0 - h3) / 20
 
         # 接下来计算每个手指的位置
         if "p" in usedRightFingers:
@@ -345,9 +345,9 @@ def new_finger_position_method(avatar_data: Any, rightFingerPositions: List[int]
             # 读取大拇指拨弦的方向
             t_move = thumb_direction / np.linalg.norm(thumb_direction)
             if isAfterPlayed:
-                T_R = t_touch_position - t_move * fingerMoveDistanceWhilePlay * 1.2
+                T_R = t_touch_position - t_move * fingerMoveDistanceWhilePlay
             else:
-                T_R = t_touch_position + t_move * fingerMoveDistanceWhilePlay * 1.2
+                T_R = t_touch_position + t_move * fingerMoveDistanceWhilePlay
         else:
             T_R = t_rest_postion
 
