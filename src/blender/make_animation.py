@@ -151,6 +151,11 @@ def animate_string(string_recorder: str):
 
             current_string = bpy.data.objects[f"string{stringIndex}"]
             if current_string:
+                # 新增功能：检查并设置自定义属性"is_vib"
+                if "is_vib" in current_string:
+                    current_string["is_vib"] = influence
+                    current_string.keyframe_insert(data_path='["is_vib"]')
+
                 shape_key_name = f's{stringIndex}fret{fret}'
                 current_shape_key = current_string.data.shape_keys.key_blocks.get(
                     shape_key_name, None)
