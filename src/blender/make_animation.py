@@ -66,6 +66,14 @@ def clear_all_keyframe(collection_name=None):
                             f"Clearing {len(fcurve.keyframe_points)} shape key keyframes from {ob.name}")
                         fcurve.keyframe_points.clear()
 
+        # 清除自定义属性关键帧（如 is_vib）
+        if ob.animation_data and ob.animation_data.action:
+            for fcurve in ob.animation_data.action.fcurves:
+                # 检查是否为自定义属性的FCurve，特别是 is_vib 属性
+                if '["is_vib"]' in fcurve.data_path:
+                    print(f"Clearing is_vib keyframes from {ob.name}")
+                    fcurve.keyframe_points.clear()
+
         # 尝试清除所有动画数据
         if ob.animation_data:
             print(f"Clearing animation data for {ob.name}")  # 调试语句
