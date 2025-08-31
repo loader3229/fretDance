@@ -235,7 +235,7 @@ def slerp(q1, q2, t_tan):
     return s1 * q1 + s2 * q2
 
 
-def lerp_by_fret(fret: float, value_1: np.ndarray, value_12: np.ndarray) -> np.ndarray:
+def lerp_by_fret(fret: float, value_1: Any, value_12: Any) -> Any:
     """
     根据品格数计算位置，支持三元位置向量和四元数旋转
     :param fret: 品格数
@@ -261,11 +261,12 @@ def lerp_by_fret(fret: float, value_1: np.ndarray, value_12: np.ndarray) -> np.n
     is_quaternion = False
     if not is_scalar:
         try:
-            is_quaternion = len(value_1) == 4 and len(value_12) == 4
+            is_quaternion = len(value_1) == 4 and len(  # type: ignore
+                value_12) == 4  # type: ignore
         except TypeError:
             # 如果无法获取长度，则不是四元数
             is_quaternion = False
-            if len(value_1) != len(value_12):
+            if len(value_1) != len(value_12):  # type: ignore
                 print(fret)
                 print(value_1)
                 print(value_12)

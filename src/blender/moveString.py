@@ -83,9 +83,14 @@ def rename_shape_key():
 def make_string_shape_keys(num_divisions: int = 80, offset_ratio: float = 0.0025):
     current_object = bpy.context.object
 
-    # 计算弦的实际长度（Z轴方向）
+    # 计算弦的实际长度
     z_coords = [v.co.z for v in current_object.data.vertices]
-    string_length = max(z_coords) - min(z_coords)
+    z_distance = max(z_coords) - min(z_coords)
+    x_coords = [v.co.x for v in current_object.data.vertices]
+    x_distance = max(x_coords) - min(x_coords)
+    y_coords = [v.co.y for v in current_object.data.vertices]
+    y_distance = max(y_coords) - min(y_coords)
+    string_length = max(z_distance, x_distance, y_distance)
 
     # 基于弦长计算实际offset值
     actual_offset = string_length * offset_ratio
