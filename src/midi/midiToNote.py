@@ -61,12 +61,12 @@ def get_tempo_changes(midiFilePath: str):
     return tempo_changes, tick_per_beat
 
 
-def export_midi_info(midiFilePath: str) -> str:
-    midiFilePath = 'asset/midi/' + midiFilePath
+def export_midi_info(midi_name: str) -> str:
+    midiFilePath = 'asset/midi/' + midi_name+'.mid'
     result = ''
     midFile = MidiFile(midiFilePath)
 
-    with open('output\current_midi_info.txt', 'w', encoding='utf-8') as f:
+    with open('output/current_midi_info.txt', 'w', encoding='utf-8') as f:
         for message in midFile.tracks[0]:
             f.write(str(message) + '\n')
 
