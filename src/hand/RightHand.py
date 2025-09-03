@@ -15,20 +15,21 @@ RightFingers = {
 
 
 class RightHand():
-    def __init__(self, usedFingers: List[str], rightFingerPositions: List[int], preUsedFingers: List[str], isArpeggio: bool = False):
+    def __init__(self, usedFingers: List[str], rightFingerPositions: List[int], preUsedFingers: List[str], isArpeggio: bool = False, is_playing_bass: bool = False):
         self.usedFingers = usedFingers
         self.rightFingerPositions = rightFingerPositions
         self.preUsedFingers = preUsedFingers
         self.isArpeggio = isArpeggio
+        self.is_playing_bass = is_playing_bass
 
-    def validateRightHand(self, usedFingers=None, rightFingerPositions=None) -> bool:
+    def validateRightHand(self, usedFingers: list[str] = [], rightFingerPositions: list[int] = []) -> bool:
 
-        if rightFingerPositions == None:
+        if len(rightFingerPositions) == 0:
             rightFingerPositions = self.rightFingerPositions
-        if usedFingers == None:
+        if len(usedFingers) == 0:
             usedFingers = self.usedFingers
 
-        return validateRightHandByFingerPositions(usedFingers, rightFingerPositions, False)
+        return self.validateRightHandByFingerPositions(usedFingers, rightFingerPositions, False)
 
     def caculateDiff(self, otherRightHand: "RightHand") -> float:
         # 重复使用同一根手指的惩罚机制
@@ -66,43 +67,42 @@ class RightHand():
     def output(self):
         print("RightHand: ", self.usedFingers, self.rightFingerPositions)
 
-
-def validateRightHandByFingerPositions(usedFingers, rightFingerPositions: List[int], repeated_fingers_checked: bool) -> bool:
-    for i in range(len(rightFingerPositions) - 1):
-        # 检测手指的位置是否从左到右递减，如果手指分布不符合科学，判断为错误
-        if rightFingerPositions[i] < rightFingerPositions[i+1]:
-            return False
-
-    # 如果没有p指，而且其它手指已经预检测掉了重复和可能性，那么就直接返回True
-    if 'p' not in usedFingers and repeated_fingers_checked:
-        return True
-
-    usedString = []
-    used_p_strings = []
-    for finger in usedFingers:
-        current_string = rightFingerPositions[RightFingers[finger]]
-        if finger == 'p':
-            used_p_strings.append(current_string)
-        elif not repeated_fingers_checked:
-            # 如果没有预检测过其它手指是否重复触弦，通过下面的方式来检测
-            if current_string not in usedString:
-                usedString.append(current_string)
-            else:
+    def validateRightHandByFingerPositions(self, usedFingers: list[str], rightFingerPositions: List[int], repeated_fingers_checked: bool) -> bool:
+        for i in range(len(rightFingerPositions) - 1):
+            # 检测手指的位置是否从左到右递减，如果手指分布不符合科学，判断为错误
+            if rightFingerPositions[i] < rightFingerPositions[i+1]:
                 return False
 
-    # 如果p指只有1根弦或者没有触弦，那么就直接返回True
-    if len(used_p_strings) < 2:
+        # 如果没有p指，而且其它手指已经预检测掉了重复和可能性，那么就直接返回True
+        if 'p' not in usedFingers and repeated_fingers_checked:
+            return True
+
+        usedString = []
+        used_p_strings = []
+        for finger in usedFingers:
+            current_string = rightFingerPositions[RightFingers[finger]]
+            if finger == 'p':
+                used_p_strings.append(current_string)
+            elif not repeated_fingers_checked:
+                # 如果没有预检测过其它手指是否重复触弦，通过下面的方式来检测
+                if current_string not in usedString:
+                    usedString.append(current_string)
+                else:
+                    return False
+
+        # 如果p指只有1根弦或者没有触弦，那么就直接返回True
+        if len(used_p_strings) < 2:
+            return True
+
+        # 如果p指触的两根弦并不相邻，那么就直接返回False
+        if abs(used_p_strings[0] - used_p_strings[1]) > 1:
+            return False
+
+        # 如果p指双拨的弦最高超过了3，那么就直接返回False
+        if min(used_p_strings) < 3:
+            return False
+
         return True
-
-    # 如果p指触的两根弦并不相邻，那么就直接返回False
-    if abs(used_p_strings[0] - used_p_strings[1]) > 1:
-        return False
-
-    # 如果p指双拨的弦最高超过了3，那么就直接返回False
-    if min(used_p_strings) < 3:
-        return False
-
-    return True
 
 
 def finger_string_map_generator(allFingers: List[str], touchedStrings: List[int], unusedFingers: List[str], allStrings: List[int], prev_finger_string_map: List[Dict[str, Any]] = []):
@@ -433,22 +433,22 @@ def caculateRightHandFingers(avatar_data: dict, rightFingerPositions: List[int],
         在计算 average_offset时，p指是特殊处理了的，它的权重是3，因为p指是决定手掌位置最重要的手指。 
               
         h0和h3两个极端手型，这两个组合包含了各个手指实际上能触碰的最高和最低弦：
-        h0是在{"p": 2, "i": 0, "m": 0, "a": 0}的位置上，它的average_offset是1, 同时h_position=0
-        h3是在{"p": 5, "i": 4, "m": 3, "a": 2}的位置上，它的average_offset是6，同时h_position=3
+        h3是在{"p": 2, "i": 0, "m": 0, "a": 0}的位置上，它的average_offset是1, 同时h_position=3
+        h0是在{"p": 5, "i": 4, "m": 3, "a": 2}的位置上，它的average_offset是6，同时h_position=0
         
         假定h_position都是线性分布，满足：
         h_position = m * average_offset + b
         
         根据上面这两个值，我们可以计算出来线性插值的斜率是：
-        m = (3 - 0) / (6 - 1)  = 0.6
+        m = -0.6
         
         最终线性插值的计算公式是：
-        h_position = 0.6 * average_offset - 0.6
+        h_position = -0.6 * average_offset + 3.6
         
         而这个时间手掌的实际位置是：
         H_R = h0 + h_position * (h3 - h0) / 3
         """
-        hand_position = 0.6 * average_offset - 0.6
+        hand_position = -0.6 * average_offset + 3.6
 
     result = new_finger_position_method(
         avatar_data, rightFingerPositions, isArpeggio, isAfterPlayed, hand_position, usedRightFingers, max_string_index)
