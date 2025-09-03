@@ -293,7 +293,8 @@ class LeftHand():
                 # 横按所按的弦，要比其它手指至少低一根弦，否则动画会很难看
                 barre_string_index = max(
                     barre_string_index, max(used_string_index_set)+1)
-                barre_string_index = min(barre_string_index, 5)
+                barre_string_index = min(
+                    barre_string_index, len(guitar.guitarStrings)-1)
             elif touch_count == 2 and barre_finger_index == 4:
                 press_state = "Partial_barre_2_strings"
             elif touch_count == 3 and barre_finger_index == 4:
@@ -383,7 +384,9 @@ class LeftHand():
                 defalut_rest_string_index = int((min(
                     used_string_index_set)+max(used_string_index_set))/2) if newHandPosition < 17 else 0
             else:
-                defalut_rest_string_index = 2
+                # 这里是为了区别吉他和bass的休息弦，一个是第三弦，一个是第二弦
+                defalut_rest_string_index = 2 if len(
+                    guitar.guitarStrings) > 5 else 1
             # 这里是默认放置休息的品位
             defalut_rest_fret = newHandPosition + rest_finger_index - 1
             rest_string = guitar.guitarStrings[defalut_rest_string_index]
