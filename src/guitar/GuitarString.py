@@ -31,9 +31,10 @@ def createGuitarStrings(notes: List[str]) -> List[GuitarString]:
     guitar_string_list = []
     for index in range(len(notes)):
         note = notes[index]
+        note_num = getKeynoteByValue(note)
+        base_note = MusicNote(note_num)
         # 第一弦是高音e弦
-        guitar_string_list.append(GuitarString(
-            MusicNote(getKeynoteByValue(note)), index))
+        guitar_string_list.append(GuitarString(base_note, index))
 
     return guitar_string_list
 
@@ -41,27 +42,34 @@ def createGuitarStrings(notes: List[str]) -> List[GuitarString]:
 def getKeynoteByValue(value: str) -> Any:
     """
     transform the note to an integer value, C is 48. 将音符转换为一个整数值，C为48
-    :param value: keynote such as `C`, `d`, `F1`. 音符，例如`C`, `d`, `F1`
+    :param value: keynote such as `C`, `F1`
     :return: an integer value. 一个整数值
     """
-    # 如果value在KEYNOTES中，直接返回.如果是value的大写在KEYNOTES中，说明当前值是高音，需要返回+12
+    # 如果value在KEYNOTES中，直接返回
     if value in KEYNOTES:
         return KEYNOTES[value]
-    elif value.upper() in KEYNOTES:
-        return KEYNOTES[value.upper()] + 12
-    # 如果value长度为2，并且最后一个值是一个数字
-    elif len(value) > 1 and value[1:].isdigit():
-        # 如果第一个值在KEYNOTES中，说明当前值是低音，返回-12*value[1]
-        if value[0] in KEYNOTES:
-            return KEYNOTES[value[0]] - 12 * int(value[1:])
-        elif value[0].upper() in KEYNOTES:
-            return KEYNOTES[value[0].upper()] + 12 * int(value[1:])
+    # 如果value是单个小写字母，表示为高音
+    elif value.upper() in KEYNOTES and value.islower() and len(value) == 1:
+        return KEYNOTES[value] + 12
+    # 如果value长度大于1，并且最后一个值是一个数字
+    elif len(value) > 1 and value[-1].isdigit():
+        # 如果第一个值是小写并在KEYNOTES中，说明当前值是高音，数字越大音越高
+        if value[0] in KEYNOTES and value[0].islower():
+            return KEYNOTES[value[0]] + 12 * int(value[-1])
+        # 如果第一个值是大写并在KEYNOTES中，说明当前值是低音，数字越大音越低
+        elif value[0:-1].upper() in KEYNOTES and value[0].isupper():
+            return KEYNOTES[value[0]] - 12 * int(value[-1])
+    # 处理带#号的音符
     elif len(value) > 1 and value[1:-1].isdigit() and value[-1] == "#":
-        # 如果第一个值在KEYNOTES中，说明当前值是低音，返回-12*value[1]
-        if value[0] in KEYNOTES:
-            return KEYNOTES[value[0]] - 12 * int(value[1:]) + 1
-        elif value[0].upper() in KEYNOTES:
-            return KEYNOTES[value[0].upper()] + 12 * int(value[1:]) + 1
+        # 如果第一个值是小写并在KEYNOTES中，说明当前值是高音，数字越大音越高
+        if value[0] in KEYNOTES and value[0].islower():
+            return KEYNOTES[value[0]] + 12 * int(value[1:-1]) + 1
+        # 如果第一个值是大写并在KEYNOTES中，说明当前值是低音，数字越大音越低
+        elif value[0].upper() in KEYNOTES and value[0].isupper():
+            return KEYNOTES[value[0]] - 12 * int(value[1:-1]) + 1
+    # 处理不带数字的大写音符
+    elif value.isupper() and value in KEYNOTES:
+        return KEYNOTES[value]
     else:
         print("音符格式有误：", value)
         return False
