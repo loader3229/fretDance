@@ -69,8 +69,10 @@ class RightHand():
 
     def validateRightHandByFingerPositions(self, usedFingers: list[str], rightFingerPositions: List[int], repeated_fingers_checked: bool) -> bool:
         for i in range(len(rightFingerPositions) - 1):
-            # 检测手指的位置是否从左到右递减，如果手指分布不符合科学，判断为错误
-            if rightFingerPositions[i] < rightFingerPositions[i+1]:
+            # 检测手指的位置是否从左到右递减，如果手指分布不符合科学，判断为错误;bass因为要考虑到会有im指交替拨低音弦的情况，需要另外考虑
+            if rightFingerPositions[i] < rightFingerPositions[i] and not self.is_playing_bass:
+                return False
+            if rightFingerPositions[i] < rightFingerPositions[i] + 1:
                 return False
 
         # 如果没有p指，而且其它手指已经预检测掉了重复和可能性，那么就直接返回True
@@ -234,6 +236,12 @@ def new_finger_position_method(avatar_data: Any, rightFingerPositions: List[int]
     """
     result = {}
 
+    # 根据手掌的位置先计算所有确定手掌和手臂位置的点
+    h0 = array(avatar_data['RIGHT_HAND_POSITIONS']['Normal_P0_H_R'])
+    h3 = array(avatar_data['RIGHT_HAND_POSITIONS']['Normal_P3_H_R'])
+    # 定义手指运动的距离，是h0和h3之间的距离的20分之1
+    fingerMoveDistanceWhilePlay = np.linalg.norm(h0 - h3) / 10
+
     if isArpeggio:
         if isAfterPlayed:
             H_R = array(avatar_data['RIGHT_HAND_POSITIONS']['Normal_Pend_H_R'])
@@ -259,9 +267,6 @@ def new_finger_position_method(avatar_data: Any, rightFingerPositions: List[int]
             R_R = array(avatar_data['RIGHT_HAND_POSITIONS']['a0'])
             P_R = array(avatar_data['RIGHT_HAND_POSITIONS']['ch0'])
     else:
-        # 根据手掌的位置先计算所有确定手掌和手臂位置的点
-        h0 = array(avatar_data['RIGHT_HAND_POSITIONS']['Normal_P0_H_R'])
-        h3 = array(avatar_data['RIGHT_HAND_POSITIONS']['Normal_P3_H_R'])
         H_R = h0 + hand_position * (h3 - h0) / 3
 
         h_rotation_0 = array(
@@ -332,8 +337,6 @@ def new_finger_position_method(avatar_data: Any, rightFingerPositions: List[int]
         ch0 = array(avatar_data['RIGHT_HAND_POSITIONS']['ch0'])
         ch3 = array(avatar_data['RIGHT_HAND_POSITIONS']['ch3'])
         ch_rest_position = ch0 + (ch3 - ch0) * hand_position / 3
-        # 定义手指运动的距离，是h0和h3之间的距离的20分之1
-        fingerMoveDistanceWhilePlay = np.linalg.norm(h0 - h3) / 20
 
         # 接下来计算每个手指的位置
         if "p" in usedRightFingers:
@@ -388,6 +391,11 @@ def new_finger_position_method(avatar_data: Any, rightFingerPositions: List[int]
 
         # ch指是不参与演奏的，所以直接使用休息位置
         P_R = ch_rest_position
+
+    # 给最终的手掌位置添加一点随机移动
+    random_vector = np.random.rand(3)
+    random_vector = random_vector / np.linalg.norm(random_vector)
+    H_R = H_R + random_vector * fingerMoveDistanceWhilePlay * 0.5
 
     result.update({
         'H_R': H_R.tolist(),

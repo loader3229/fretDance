@@ -8,7 +8,7 @@ from ..utils.utils import lerp_by_fret, slerp
 from typing import Any
 
 
-def leftHand2Animation(avatar: str, recorder: str, animation_json_path: str, tempo_changes, ticks_per_beat, FPS: float, max_string_index: int, disable_barre: bool = True) -> None:
+def leftHand2Animation(avatar: str, recorder: str, animation_json_path: str, FPS: float, max_string_index: int, disable_barre: bool = True) -> None:
     """
     :params recorder: the path of the recorder file
     :params animation_json_path: the path of the file store information for animation
@@ -21,10 +21,17 @@ def leftHand2Animation(avatar: str, recorder: str, animation_json_path: str, tem
     finger_position_p1 = array(avatar_data['LEFT_FINGER_POSITIONS']["P1"])
     finger_position_p2 = array(avatar_data['LEFT_FINGER_POSITIONS']["P2"])
 
-    # 这个就是两个不同姿势之间切换时需要的帧数，相当于0.125秒，所以动画人物动作还是非常迅速的
-    elapsed_frame = FPS / 8.0
-    # 这是手指从按弦变成松开需要的帧数，相当于0.0625秒
-    finger_return_to_rest_frame = FPS / 16
+    # 这是人物按下弦需要的时间，还是挺快的
+    press_duration = FPS / 16
+    # 这个就是两个不同姿势之间切换时需要的帧数
+    elapsed_frame = press_duration * 3
+    # 这是手指从按弦变成松开需要的帧数
+    finger_return_to_rest_frame = press_duration * 1.2
+
+    # p0和p1的距离
+    p0_p1_distance = linalg.norm(finger_position_p0 - finger_position_p1)
+    # 按弦接下的距离直接取p0和p1距离的1/5
+    press_distance = p0_p1_distance / 5
 
     # 计算finger_position_p0,finger_position_p1,finger_position_p2三点组成的平面上的法线值
     normal = cross(finger_position_p0 - finger_position_p1,
@@ -36,92 +43,260 @@ def leftHand2Animation(avatar: str, recorder: str, animation_json_path: str, tem
     with open(recorder, "r") as f:
         handDicts = json.load(f)
 
+    # 初始化状态
+    init_state = None
+
     for i in range(len(handDicts)):
         item = handDicts[i]
         frame = item["frame"]
         pitchwheel = item.get("pitchwheel", 0)
-        hold_pose_frame = None
-        finger_return_to_rest_pose_frame = None
+
+        # 计算当前帧的动画信息（beat状态）
+        current_finger_infos = animatedLeftHand(
+            avatar_data, item, normal, max_string_index, pitchwheel, rest_finger_distance=press_distance, disable_barre=disable_barre)
+
+        # 获取需要抬指的手指索引集合
         finger_index_set_need_to_change = set()
 
+        # 初始化下一帧信息
+        next_frame = None
+        next_finger_infos = None
+
+        # 如果不是最后一帧，获取下一帧信息
         if i != len(handDicts) - 1:
             next_frame = handDicts[i + 1]["frame"]
-            no_time_for_detail = (next_frame <= frame + elapsed_frame)
+            next_pitchwheel = handDicts[i + 1].get("pitchwheel", 0)
+            next_finger_infos = animatedLeftHand(
+                avatar_data, handDicts[i + 1], normal, max_string_index, next_pitchwheel, rest_finger_distance=press_distance, disable_barre=disable_barre)
 
-            if not no_time_for_detail:
-                time_enough_for_three_action = (next_frame > frame +
-                                                elapsed_frame + finger_return_to_rest_frame)
+            # 对比当前手势和下一个手势，找出来姿势切换时需要抬指的手指
+            current_hand = item["leftHand"]
+            current_finger_dict = {
+                finger['fingerIndex']: finger['fingerInfo'] for finger in current_hand}
 
-                # 对比当前手势和下一个手势，找出来姿势切换时需要抬指的手指
-                current_hand = item["leftHand"]
-                current_finger_dict = {
-                    finger['fingerIndex']: finger['fingerInfo'] for finger in current_hand}
+            next_hand = handDicts[i + 1]["leftHand"]
+            next_finger_dict = {
+                finger['fingerIndex']: finger['fingerInfo'] for finger in next_hand}
 
-                next_hand = handDicts[i + 1]["leftHand"]
-                next_finger_dict = {
-                    finger['fingerIndex']: finger['fingerInfo'] for finger in next_hand}
+            for finger_index in range(1, 5):
+                current_finger = current_finger_dict.get(finger_index)
+                next_finger = next_finger_dict.get(finger_index)
+                # 如果一个手指当前是按弦状态，而下一个状态换弦了，就需要有抬指的动作（换品可以不抬指直接滑过去）
+                if current_finger and next_finger and \
+                   current_finger['press'] != 0 and \
+                   current_finger['stringIndex'] != next_finger['stringIndex']:
+                    finger_index_set_need_to_change.add(finger_index)
 
-                if time_enough_for_three_action:
-                    # 两个音符之间有足够空间时间时，设置保持姿势的时间，以及恢复手指到休息位置的时间
-                    hold_pose_frame = next_frame - elapsed_frame - finger_return_to_rest_frame
-                    finger_return_to_rest_pose_frame = next_frame - finger_return_to_rest_frame
+        # 第一帧需要添加初始状态
+        if i == 0:
+            # 创建初始状态（所有手指处于休息状态）
+            init_state = create_init_state(
+                avatar_data, item, normal, max_string_index, pitchwheel, press_distance, disable_barre)
+            data_for_animation.append({
+                "frame": 0,
+                "fingerInfos": init_state,
+                "pitchwheel": 0
+            })
 
-                    for finger_index in range(1, 5):
-                        current_finger = current_finger_dict[finger_index]
-                        next_finger = next_finger_dict[finger_index]
-                        # 如果一个手指当前是按弦状态，而下一个状态换弦了，就需要有抬指的动作（换品可以不抬指直接滑过去）
-                        if current_finger['press'] != 0 and current_finger['stringIndex'] != next_finger['stringIndex']:
-                            finger_index_set_need_to_change.add(finger_index)
-
-                    # 执行完这一段代码以后，得到一个`finger_return_to_rest_pose_frame`以及一个非空的`finger_index_set_need_to_change`
-                else:
-                    hold_pose_frame = next_frame - elapsed_frame
-
-        # 计算左手的动画信息
-        fingerInfos = animatedLeftHand(
-            avatar_data, item, normal, max_string_index, pitchwheel, disable_barre=disable_barre)
-
-        # 按弦帧
+        # 添加当前帧（beat状态）
         data_for_animation.append({
             "frame": frame,
-            "fingerInfos": fingerInfos,
+            "fingerInfos": current_finger_infos,
             "pitchwheel": pitchwheel
         })
 
-        # 抬指帧
-        if finger_return_to_rest_pose_frame:
-            left_finger_index_dict = {
-                1: "I_L",
-                2: "M_L",
-                3: "R_L",
-                4: "P_L"
-            }
-            for rest_finger_index in list(finger_index_set_need_to_change):
-                controller_name = left_finger_index_dict[rest_finger_index]
-                current_position = array(fingerInfos[controller_name])
-                # 小拇指休息时比其它手指抬得要高一点
-                if rest_finger_index == 4:
-                    new_position = current_position - 2 * normal * 0.006
-                else:
-                    new_position = current_position - normal * 0.006
-                fingerInfos[controller_name] = new_position.tolist()
+        # 插入中间帧
+        frames_to_insert = interpolate_left_hand_frames(
+            current_frame=frame,
+            next_frame=next_frame,
+            current_beat_state=current_finger_infos,
+            next_ready_state=next_finger_infos,
+            finger_index_set_need_to_change=finger_index_set_need_to_change,
+            normal=normal,
+            press_distance=press_distance,
+            press_duration=press_duration,
+            action_duration=elapsed_frame,
+            rest_duration=finger_return_to_rest_frame,
+            is_first_action=(i == 0),
+            init_state=init_state,
+            pitchwheel=pitchwheel,
+            next_pitchwheel=handDicts[i +
+                                      1].get("pitchwheel", 0) if i != len(handDicts) - 1 else 0
+        )
 
-            data_for_animation.append({
-                "frame": finger_return_to_rest_pose_frame,
-                "fingerInfos": fingerInfos,
-                "pitchwheel": pitchwheel
-            })
-
-        # 保持到下一个姿势切换前的帧
-        if hold_pose_frame:
-            data_for_animation.append({
-                "frame": hold_pose_frame,
-                "fingerInfos": fingerInfos,
-                "pitchwheel": pitchwheel
-            })
+        # 将插值帧添加到动画数据中
+        for frame_data in frames_to_insert:
+            data_for_animation.append(frame_data)
 
     with open(animation_json_path, "w") as f:
         json.dump(data_for_animation, f)
+
+
+def create_init_state(avatar_data, item, normal, max_string_index, pitchwheel, press_distance, disable_barre):
+    """创建初始状态（所有手指处于休息位置）"""
+    # 复制当前状态作为基础
+    init_finger_infos = animatedLeftHand(
+        avatar_data, item, normal, max_string_index, pitchwheel, rest_finger_distance=press_distance, disable_barre=disable_barre)
+
+    # 将所有手指移动到休息位置
+    left_finger_index_dict = {
+        1: "I_L",
+        2: "M_L",
+        3: "R_L",
+        4: "P_L"
+    }
+
+    for finger_index in range(1, 5):
+        controller_name = left_finger_index_dict[finger_index]
+        current_position = array(init_finger_infos[controller_name])
+        # 手指休息时比按弦时抬高一些
+        if finger_index == 4:  # 小拇指抬得更高
+            new_position = current_position - 2 * normal * press_distance
+        else:
+            new_position = current_position - normal * press_distance
+        init_finger_infos[controller_name] = new_position.tolist()
+
+    # 休息状态的手可以往后一点点位置
+    current_H_position = array(init_finger_infos["H_L"])
+    random_vector = np.random.rand(3)
+    random_vector = random_vector / np.linalg.norm(random_vector)
+    current_H_position += random_vector * press_distance * 0.5
+    init_finger_infos["H_L"] = current_H_position.tolist()
+
+    return init_finger_infos
+
+
+def interpolate_left_hand_frames(current_frame, next_frame, current_beat_state, next_ready_state,
+                                 finger_index_set_need_to_change, normal, press_distance, press_duration, action_duration, rest_duration,
+                                 is_first_action, init_state, pitchwheel, next_pitchwheel):
+    """根据通用插帧逻辑生成左手动画帧"""
+    frames_to_insert = []
+
+    # 处理第一个动作的特殊情况
+    if is_first_action:
+        # 在当前帧前action_duration的位置插入当前动作的预备状态
+        ready_time = current_frame - action_duration - press_duration
+        if ready_time >= 0:
+            frames_to_insert.append({
+                "frame": ready_time,
+                "fingerInfos": init_state,
+                "pitchwheel": pitchwheel
+            })
+
+    # 如果没有下一个动作帧，仅插入当前动作的beat状态，以示保持
+    if next_frame is None:
+        rest_time = current_frame + rest_duration
+        # 创建rest状态（抬指状态）
+        rest_state = create_rest_state(
+            current_beat_state, press_distance, finger_index_set_need_to_change, normal)
+        frames_to_insert.append({
+            "frame": rest_time,
+            "fingerInfos": current_beat_state,
+            "pitchwheel": pitchwheel
+        })
+        return frames_to_insert
+
+    # 获取当前和下一个动作帧的时间戳
+    current_time = current_frame
+    next_time = next_frame
+    T = next_time - current_time  # 可用时间
+
+    # 情况1: 时间足够插入所有状态（保持结束、回弹结束、预备状态）
+    if T >= rest_duration + action_duration+press_duration:
+        # 创建rest状态（抬指状态）
+        rest_state = create_rest_state(
+            current_beat_state, press_distance, finger_index_set_need_to_change, normal)
+
+        rest_start_time = next_time - press_duration - action_duration-rest_duration
+        rest_end_time = next_time - press_duration - action_duration
+        ready_time = next_time - press_duration
+
+        # 插入beat状态持续结束时的帧
+        frames_to_insert.append({
+            "frame": rest_start_time,
+            "fingerInfos": current_beat_state,
+            "pitchwheel": pitchwheel
+        })
+
+        # 插入进入到rest状态的帧，注意rest不用保持，也就是达到rest状态以后就可以开始移动了
+        frames_to_insert.append({
+            "frame": rest_end_time,
+            "fingerInfos": rest_state,
+            "pitchwheel": pitchwheel
+        })
+
+        # 插入下一个动作的ready帧
+        frames_to_insert.append({
+            "frame": ready_time,
+            "fingerInfos": next_ready_state,
+            "pitchwheel": next_pitchwheel
+        })
+
+    # 情况2: 时间不够插入所有状态，但足够插入预备状态和移动过程，所以可以去掉保持beat状态的帧，也就是按完立马开始抬指
+    elif T >= action_duration+press_duration:
+        ready_time = next_time - press_duration
+        rest_end_time = next_time - press_duration - action_duration
+
+        # 创建rest状态（抬指状态）
+        rest_state = create_rest_state(
+            current_beat_state, press_distance, finger_index_set_need_to_change, normal)
+        frames_to_insert.append({
+            "frame": rest_end_time,
+            "fingerInfos": rest_state,
+            "pitchwheel": pitchwheel
+        })
+        frames_to_insert.append({
+            "frame": ready_time,
+            "fingerInfos": next_ready_state,
+            "pitchwheel": next_pitchwheel
+        })
+    elif T >= press_duration:
+        # 时间只够插入预备状态，所以还是要填入预备状态的
+        ready_time = next_time - press_duration
+
+        frames_to_insert.append({
+            "frame": ready_time,
+            "fingerInfos": next_ready_state,
+            "pitchwheel": next_pitchwheel
+        })
+    # 情况3: 时间连插入预备状态都不够，只保留当前动作帧
+    else:
+        print(f'当前动作帧{current_frame}与下一帧{next_frame}之间时间不足，没有插入任何中间状态！')
+
+    return frames_to_insert
+
+
+def create_rest_state(beat_state, press_distance, finger_index_set_need_to_change, normal):
+    """创建手指抬高的休息状态"""
+    # 复制当前状态
+    rest_state = beat_state.copy()
+
+    left_finger_index_dict = {
+        1: "I_L",
+        2: "M_L",
+        3: "R_L",
+        4: "P_L"
+    }
+
+    # 抬高需要改变的手指
+    for rest_finger_index in list(finger_index_set_need_to_change):
+        controller_name = left_finger_index_dict[rest_finger_index]
+        current_position = array(rest_state[controller_name])
+        # 小拇指休息时比其它手指抬得要高一点
+        if rest_finger_index == 4:
+            new_position = current_position - 2 * normal * press_distance
+        else:
+            new_position = current_position - normal * press_distance
+        rest_state[controller_name] = new_position.tolist()
+
+    # rest状态的手随机动一点
+    current_H_Position = array(rest_state['H_L'])
+    random_vector = np.random.rand(3)
+    random_vector = random_vector / np.linalg.norm(random_vector)
+    current_H_Position += random_vector * press_distance * 0.25
+    rest_state['H_L'] = current_H_Position.tolist()
+
+    return rest_state
 
 
 def addPitchwheel(left_hand_recorder_file: str, pitch_wheel_map: list):
@@ -153,7 +328,7 @@ def addPitchwheel(left_hand_recorder_file: str, pitch_wheel_map: list):
             json.dump(new_data, f, indent=4)
 
 
-def animatedLeftHand(avatar_data: object, item: Any, normal: np.ndarray, max_string_index: int, pitchwheel: int, rest_finger_distance=0.006, disable_barre: bool = False):
+def animatedLeftHand(avatar_data: object, item: Any, normal: np.ndarray, max_string_index: int, pitchwheel: int, rest_finger_distance, disable_barre: bool = False):
     leftHand = item["leftHand"]
     hand_fret = item["hand_position"]
     use_barre = item.get("use_barre", False) and not disable_barre
@@ -339,7 +514,7 @@ def rightHand2Animation(avatar: str, recorder: str, animation: str, FPS: int, ma
     data_for_animation = []
     # 这里是计算按弦需要保持的时间
     elapsed_frame = int(FPS / 15)
-    json_file = f'asset\controller_infos\{avatar}.json'
+    json_file = f'asset/controller_infos/{avatar}.json'
     with open(json_file, 'r') as f:
         avatar_data = json.load(f)
         if not avatar_data:
