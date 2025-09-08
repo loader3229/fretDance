@@ -7,7 +7,7 @@ import json
 
 class HandPoseRecorder():
     """
-    a recorder for hand pose. 一个手势记录器
+    a recorder for hand pose. 一个手势记录器，用于记录左手指法
     """
 
     def __init__(self) -> None:
@@ -66,8 +66,30 @@ class HandPoseRecorder():
                 "hand_position": leftHand.handPosition
             })
 
+        # 统计去重前的数量
+        original_count = len(handsDict)
+
+        # 根据frame去重，保留每个frame第一次出现的记录
+        unique_hands_dict = []
+        seen_frames = set()
+        for item in handsDict:
+            if item["frame"] not in seen_frames:
+                seen_frames.add(item["frame"])
+                unique_hands_dict.append(item)
+
+        # 统计去重后的数量和去重数量
+        unique_count = len(unique_hands_dict)
+        duplicates_removed = original_count - unique_count
+
+        # 根据frame排序
+        unique_hands_dict.sort(key=lambda x: x["frame"])
+
+        # 输出去重统计信息
+        print(
+            f"去重统计: 原始记录 {original_count} 条，去重后 {unique_count} 条，删除重复记录 {duplicates_removed} 条")
+
         with open(jsonFilePath, 'w') as f:
-            json.dump(handsDict, f, indent=4)
+            json.dump(unique_hands_dict, f, indent=4)
 
 
 class RightHandRecorder():
