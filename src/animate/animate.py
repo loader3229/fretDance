@@ -1,7 +1,6 @@
 import json
 import numpy as np
-from numpy import array, linalg, cross, random
-from scipy.spatial.transform import Rotation as R
+from numpy import array, linalg, cross
 from ..hand.LeftFinger import PRESSSTATE
 from ..hand.RightHand import caculateRightHandFingers, calculateRightPick
 from ..utils.utils import lerp_by_fret, slerp

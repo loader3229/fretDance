@@ -310,7 +310,7 @@ def main(avatar: str, midiFilePath: str, track_number: List[int], channel_number
         addPitchwheel(left_hand_recorder_file, pitch_wheel_map)
 
     leftHand2Animation(avatar, left_hand_recorder_file,
-                       left_hand_animation_file, tempo_changes, ticks_per_beat, FPS, max_string_index)
+                       left_hand_animation_file, FPS, max_string_index, False)
 
     # 下面是处理右手的部分，右手要视情况分电吉他与古典吉他两种情况处理。
     print('开始生成右手演奏数据')
