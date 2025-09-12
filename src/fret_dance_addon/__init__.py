@@ -7,6 +7,7 @@ from bpy_extras.io_utils import ExportHelper  # type: ignore
 
 # 使用相对导入
 from .base_states import BaseState, Instruments, BasePositions, LeftHandStates, RightHandStates
+from .mmd2blender import mmd2blender
 
 bl_info = {
     "name": "FretDance Controller Setup",
@@ -44,6 +45,24 @@ class FRET_DANCE_OT_check_status(Operator):
         base_state = BaseState(Instruments(int(scene.fret_dance_instruments)))
         base_state.check_objects_status()
         self.report({'INFO'}, "Check complete. See console for details.")
+        return {'FINISHED'}
+
+
+class WM_OT_mmd2blender_initialize(bpy.types.Operator):
+    """初始化MMD骨骼"""
+    bl_idname = "wm.mmd2blender_initialize"
+    bl_label = "初始化MMD骨骼"
+    bl_description = "初始化MMD骨骼以适配Blender"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        try:
+            # 调用mmd2blender方法
+            mmd2blender()
+            self.report({'INFO'}, "MMD骨骼初始化完成")
+        except Exception as e:
+            self.report({'ERROR'}, f"初始化失败: {str(e)}")
+            return {'CANCELLED'}
         return {'FINISHED'}
 
 
@@ -168,6 +187,8 @@ class FRET_DANCE_PT_main_panel(Panel):
         row = box.row(align=True)
         row.operator("fret_dance.check_status")
         row.operator("fret_dance.setup_objects")
+        row = box.row()
+        row.operator("wm.mmd2blender_initialize", text="初始化mmd骨骼")
 
         # 第二大块：Choose left hand state
         box = layout.box()
@@ -251,6 +272,7 @@ def register():
     bpy.utils.register_class(FRET_DANCE_OT_set_state)
     bpy.utils.register_class(FRET_DANCE_OT_load_state)
     bpy.utils.register_class(FRET_DANCE_OT_export_info)
+    bpy.utils.register_class(WM_OT_mmd2blender_initialize)
     bpy.utils.register_class(FRET_DANCE_PT_main_panel)
 
 
@@ -262,6 +284,7 @@ def unregister():
     bpy.utils.unregister_class(FRET_DANCE_OT_set_state)
     bpy.utils.unregister_class(FRET_DANCE_OT_check_status)
     bpy.utils.unregister_class(FRET_DANCE_OT_setup_objects)
+    bpy.utils.unregister_class(WM_OT_mmd2blender_initialize)
 
     # 删除属性
     del bpy.types.Scene.fret_dance_instruments

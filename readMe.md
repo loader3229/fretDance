@@ -10,6 +10,12 @@ Classical Guitar Performance Video: [Jeht - Bird's Poem](https://www.bilibili.co
 
 For detailed tutorials and documentation, please visit my Zhihu Column (知乎专栏): [fretDance Column](https://www.zhihu.com/column/c_1932748054936684153)
 
+### About Addon
+
+The content in the `fret_dance_addon` folder is a Blender add-on. To use it, compress the entire folder into a zip file, then locate and install this zip file through Blender's add-on installation interface.
+
+The add-on is designed to assist with the initialization setup process for character models.
+
 ### Note to English Readers:
 
 Due to the extensive documentation content, I recommend viewing my Zhihu Column for complete information.
