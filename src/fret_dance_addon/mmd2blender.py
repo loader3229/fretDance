@@ -467,7 +467,7 @@ def set_copy_rotations(armature):
 
     for suffix in ["L", "R"]:
         add_copy_rotation_constraint_for_bone(
-            armature, "手首."+suffix, "H_rotation_"+suffix, True, 'world')
+            armature, "手首."+suffix, "H_rotation_"+suffix, False, 'world')
         add_copy_rotation_constraint_for_bone(
             armature, "手捩."+suffix, "手首."+suffix, True, 'local')
 
