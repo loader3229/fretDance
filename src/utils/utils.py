@@ -13,7 +13,8 @@ def convertNotesToChord(notes: List[int], guitar: Guitar) -> Any:
     :param guitar: guitar. 吉他
     :return: a list of possible positions on the guitar. 一个吉他上的可能位置列表
     """
-    all_harm_notes = guitar.harm_notes
+    use_harm_notes = guitar.use_harm_notes
+    all_harm_notes = guitar.harm_notes if use_harm_notes else []
     notePositions = []
     result = []
 
@@ -23,9 +24,9 @@ def convertNotesToChord(notes: List[int], guitar: Guitar) -> Any:
         for guitarString in guitar.guitarStrings:
             guitarStringIndex = guitarString._stringIndex
             harm_notes = list(
-                filter(lambda x: x["index"] == guitarStringIndex, all_harm_notes))
+                filter(lambda x: x["index"] == guitarStringIndex, all_harm_notes)) if use_harm_notes else []
             harm_frets = [harm_note["fret"]
-                          for harm_note in harm_notes if harm_note["note"] == note]
+                          for harm_note in harm_notes if harm_note["note"] == note] if use_harm_notes else []
             normal_fret = guitarString.getFretByNote(note)
             has_normal_fret = normal_fret is not False
             if len(harm_frets) == 0 and not has_normal_fret:

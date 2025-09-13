@@ -10,10 +10,11 @@ class Guitar():
     fullString: Length of string. 整根弦的长度
     """
 
-    def __init__(self, guitarStrings: List[GuitarString], stringDistance: float = 0.85, fullString: float = 64.7954):
+    def __init__(self, guitarStrings: List[GuitarString], use_harm_note: bool = True, stringDistance: float = 0.85, fullString: float = 64.7954):
         self._stringDistance = stringDistance
         self._fullString = fullString
         self.guitarStrings = guitarStrings
+        self.use_harm_notes = use_harm_note
         self.harm_notes = self.getHarmonicNotes()
 
     @property
