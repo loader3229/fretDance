@@ -34,6 +34,7 @@ def process_wrist_bones(armature, base_bone_name: str, suffix: str = ""):
 
         # 将原来的骨骼设置为MCH骨骼的子级
         wrist_bone.parent = new_bone
+        mch_wrist_bone = new_bone
 
         print(f"已创建 {mch_bone_name} 并设置父子关系")
     elif mch_wrist_bone:
@@ -41,15 +42,24 @@ def process_wrist_bones(armature, base_bone_name: str, suffix: str = ""):
 
     # 检查腕捩的父级是不是mch_bone，如果不是就把父级设为mch_bone
     wrist_twist_bone = edit_bones.get(f"腕捩{suffix}")
+    if wrist_twist_bone is None:
+        print(f"未找到 {f'腕捩{suffix}'} 骨骼")
+        side = "left" if suffix == ".L" else "right"
+        wrist_twist_bone = edit_bones.get(f"arm {side} shoulder twist")
+        if wrist_twist_bone is None:
+            print(f"未找到 {f'arm {side} shoulder twist'} 骨骼")
+
     if wrist_twist_bone and wrist_twist_bone.parent != mch_wrist_bone:
         wrist_twist_bone.parent = mch_wrist_bone
-        print(f"已设置腕捩{suffix}的父级为{mch_bone_name}")
+        print(f"已设置{wrist_twist_bone.name}的父级为{wrist_twist_bone.parent.name}")
+    else:
+        print(f"{mch_bone_name} 已存在，无需创建")
 
     # 检查ひじ的父级是不是mch_bone，如果不是就把父级设为mch_bone
     fore_arm_bone = edit_bones.get(f"ひじ{suffix}")
     if fore_arm_bone and fore_arm_bone.parent != mch_wrist_bone:
         fore_arm_bone.parent = mch_wrist_bone
-        print(f"已设置ひじ{suffix}的父级为{mch_bone_name}")
+        print(f"已设置{fore_arm_bone.name}的父级为{fore_arm_bone.parent.name}")
 
 
 def process_fore_arm_bones(armature, base_bone_name: str, suffix: str = ""):
@@ -85,21 +95,35 @@ def process_fore_arm_bones(armature, base_bone_name: str, suffix: str = ""):
         # 将原来的骨骼设置为MCH骨骼的子级
         wrist_bone.parent = new_bone
 
+        mch_wrist_bone = new_bone
+
         print(f"已创建 {mch_bone_name} 并设置父子关系")
     elif mch_wrist_bone:
         print(f"{mch_bone_name} 已存在，无需创建")
 
+    # 检查 wrist_bone 的父级是不是 mch_wrist_bone，如果不是就添加
+    if mch_wrist_bone and mch_wrist_bone.parent.name != f"MCH_腕{suffix}":
+        mch_wrist_bone.parent = edit_bones.get(f"MCH_腕{suffix}")
+        print(f"已设置 {mch_wrist_bone.name} 的父级为 {mch_wrist_bone.parent.name}")
+
     # 检查腕捩的父级是不是mch_bone，如果不是就把父级设为mch_bone
     wrist_twist_bone = edit_bones.get(f"手捩{suffix}")
+    if wrist_twist_bone is None:
+        print(f"未找到 {f'手捩{suffix}'} 骨骼")
+        side = "left" if suffix == ".L" else "right"
+        wrist_twist_bone = edit_bones.get(f"arm {side} elbow twist")
+        if wrist_twist_bone is None:
+            print(f"未找到 {f'arm {side} elbow twist'} 骨骼")
+
     if wrist_twist_bone and wrist_twist_bone.parent != mch_wrist_bone:
         wrist_twist_bone.parent = mch_wrist_bone
-        print(f"已设置手捩{suffix}的父级为{mch_bone_name}")
+        print(f"已设置{wrist_twist_bone.name}的父级为{wrist_twist_bone.parent.name}")
 
     # 检查手首的父级是不是mch_bone，如果不是就把父级设为mch_bone
     fore_arm_bone = edit_bones.get(f"手首{suffix}")
     if fore_arm_bone and fore_arm_bone.parent != mch_wrist_bone:
         fore_arm_bone.parent = mch_wrist_bone
-        print(f"已设置手首{suffix}的父级为{mch_bone_name}")
+        print(f"已设置{fore_arm_bone.name}的父级为{fore_arm_bone.parent.name}")
 
 
 def create_finger_MCH_bones(armature):
@@ -162,6 +186,8 @@ def create_finger_MCH_bones(armature):
         new_parent = bpy.context.object.data.edit_bones.get(new_parent_name)
         if new_parent:
             copy_bone.parent = new_parent
+            # 设置与父级为connected
+            copy_bone.use_connect = True
 
 
 def make_target_bones(armature):
@@ -239,6 +265,7 @@ def move_MCH_bones(armature, MCH_collection_name: str = "MCH"):
 
 
 def move_obj_to_bone_position(armature, bone_name, obj_name):
+
     obj = bpy.data.objects.get(obj_name)
     if not obj:
         print(f"未找到对象 {obj_name}")
@@ -261,6 +288,7 @@ def move_obj_to_bone_position(armature, bone_name, obj_name):
 
 
 def move_objs_to_bones(armature):
+    set_parents()
     for suffix in ["L", "R"]:
         # 设置父子关系：让HP_*/TP_*对象成为Tar_肩/Tar_手首骨骼的子级
         obj_hp = bpy.data.objects.get("HP_" + suffix)
@@ -274,6 +302,7 @@ def move_objs_to_bones(armature):
             obj_hp.parent_type = 'BONE'
             obj_hp.parent_bone = "Tar_肩." + suffix
             obj_hp.location = (0, 0, 0)
+            print("HP_" + suffix + "已设置成Tar_肩骨骼的子级")
 
         if obj_tp and bone_wrist:
             # 设置TP_*为Tar_手首骨骼的子级
@@ -281,9 +310,13 @@ def move_objs_to_bones(armature):
             obj_tp.parent_type = 'BONE'
             obj_tp.parent_bone = "Tar_手首." + suffix
             obj_tp.location = (0, 0, 0)
+            print("TP_" + suffix + "已设置成Tar_手首骨骼的子级")
 
     for suffix in ["L", "R"]:
         move_obj_to_bone_position(armature, "ひじ."+suffix, "H_"+suffix)
+        move_obj_to_bone_position(
+            armature, "Tar_肩."+suffix, "HP_"+suffix)
+        move_obj_to_bone_position(armature, "ひじ."+suffix, "H_rotation"+suffix)
         move_obj_to_bone_position(armature, "親指２."+suffix, "T_"+suffix)
         move_obj_to_bone_position(armature, "人指３."+suffix, "I_"+suffix)
         move_obj_to_bone_position(armature, "中指３."+suffix, "M_"+suffix)
@@ -411,8 +444,9 @@ def set_iks(armature):
     # 在MCH_ひじ.L上设置ik，目标是H_L,pole是HP_L,层数是3
     for suffix in ["L", "R"]:
         add_ik_constraint_for_bone(
-            armature, f"MCH_ひじ.{suffix}", f"H_{suffix}", f"HP_{suffix}", 3)
-        add_ik_constraint_for_bone(armature, "MCH_親指２."+suffix, "T_"+suffix)
+            armature, f"MCH_ひじ.{suffix}", f"H_{suffix}", f"HP_{suffix}", 2)
+        add_ik_constraint_for_bone(
+            armature, "MCH_親指２."+suffix, "T_"+suffix, "TP_"+suffix)
         add_ik_constraint_for_bone(armature, "MCH_人指３."+suffix, "I_"+suffix)
         add_ik_constraint_for_bone(armature, "MCH_中指３."+suffix, "M_"+suffix)
         add_ik_constraint_for_bone(armature, "MCH_薬指３."+suffix, "R_"+suffix)
@@ -470,6 +504,24 @@ def set_copy_rotations(armature):
             armature, "手首."+suffix, "H_rotation_"+suffix, False, 'world')
         add_copy_rotation_constraint_for_bone(
             armature, "手捩."+suffix, "手首."+suffix, True, 'local')
+        side = "left" if suffix == "L" else "right"
+        fore_arm_name = f'arm {side} elbow twist'
+        add_copy_rotation_constraint_for_bone(
+            armature, fore_arm_name, "手首."+suffix, True, 'local')
+
+
+def set_parents():
+    for suffix in ["L", "R"]:
+        rotation_controller_name = f'H_rotation_{suffix}'
+        hand_controller_name = f'H_{suffix}'
+        rotation_controller = bpy.data.objects[rotation_controller_name]
+        hand_controller = bpy.data.objects[hand_controller_name]
+        if rotation_controller and hand_controller:
+            rotation_controller.parent = hand_controller
+            rotation_controller.location = (0, 0, 0)
+            print(f"已设置 {rotation_controller_name} 的父对象为 {hand_controller_name}")
+        else:
+            print(f"未找到对象 {rotation_controller_name} 或 {hand_controller_name}")
 
 
 def mmd2blender():
@@ -492,8 +544,8 @@ def mmd2blender():
     create_finger_MCH_bones(armature)
     make_target_bones(armature)
     move_objs_to_bones(armature)
-
     move_MCH_bones(armature)
+
     set_iks(armature)
     set_locked_tracks(armature)
     set_copy_rotations(armature)

@@ -581,8 +581,8 @@ class BaseState():
             bpy.ops.mesh.primitive_cube_add(
                 size=0.2, enter_editmode=False, align='WORLD', location=(0, 0, 0), scale=(0.1, 0.1, 0.1))
         elif obj_type == "cone":
-            bpy.ops.mesh.primitive_cone_add(
-                enter_editmode=False, align='WORLD', location=(0, 0, 0), scale=(0.1, 0.1, 0.1))
+            bpy.ops.mesh.primitive_cone_add(enter_editmode=False, align='WORLD', location=(
+                0, 0, 0), scale=(0.01, 0.01, 0.01))
         elif obj_type == "sphere":
             bpy.ops.object.empty_add(type='SPHERE', radius=0.01)
         elif obj_type == "cone_empty":
