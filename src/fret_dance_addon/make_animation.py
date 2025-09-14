@@ -3,45 +3,116 @@ import json
 import mathutils
 
 
-def clear_all_keyframe(collection_name=None):
-    # 选择特定collection下的所有物体
+def collect_collection_objects(col, exclude_names, object_names):
+    # 收集当前collection中的所有物体名称
+    for obj in col.objects:
+        # 检查物体是否在排除列表中
+        if obj.name in exclude_names:
+            print(f"Excluding object: {obj.name}")
+            continue
+        object_names.append(obj.name)
+        print(f"Collected object: {obj.name}")  # 调试语句
+
+    # 递归处理所有子collection
+    for child_col in col.children:
+        # 检查子集合是否在排除列表中
+        if child_col.name in exclude_names:
+            print(f"Excluding collection: {child_col.name}")
+            continue
+        collect_collection_objects(child_col, exclude_names, object_names)
+
+
+def clear_all_keyframe(collection_name=None, exclude_names=None):
+    """
+    清除关键帧函数
+
+    Args:
+        collection_name: 要处理的集合名称
+        exclude_names: 要排除的物体名称或集合名称列表
+    """
+    if exclude_names is None:
+        exclude_names = []
+
+    # 收集特定collection下的所有物体名称
+    object_names = []
     if collection_name:
-        # 取消当前所有选择
-        bpy.ops.object.select_all(action='DESELECT')
         # 获取指定collection
         collection = bpy.data.collections.get(collection_name)
         if collection:
-            # 递归获取collection及其所有子collection中的物体
-            def select_collection_objects(col):
-                # 选择当前collection中的所有物体
-                for obj in col.objects:
-                    obj.select_set(True)
-                    print(f"Selected object: {obj.name}")  # 调试语句
-                    bpy.context.view_layer.objects.active = obj  # 设置活动对象
-
-                # 递归处理所有子collection
-                for child_col in col.children:
-                    select_collection_objects(child_col)
-
-            select_collection_objects(collection)
+            # 递归收集collection及其所有子collection中的物体名称
+            collect_collection_objects(collection, exclude_names, object_names)
             # 调试语句
-            print(
-                f"Total selected objects: {len(bpy.context.selected_objects)}")
+            print(f"Total collected objects: {len(object_names)}")
         else:
             print(f"Collection '{collection_name}' not found")
             return
     else:
-        # 如果没有指定collection，则选择所有物体（原有逻辑）
-        bpy.ops.object.select_all(action='SELECT')
+        # 如果没有指定collection，则收集所有物体（排除列表中的除外）
+        for obj in bpy.data.objects:
+            if obj.name not in exclude_names:
+                object_names.append(obj.name)
+                print(f"Collected object: {obj.name}")
 
     # 清除所有关键帧 - 改进版本
     # 调试语句
-    print(
-        f"Processing {len(bpy.context.selected_objects)} objects for animation clearing")
-    for ob in bpy.context.selected_objects:
+    print(f"Processing {len(object_names)} objects for animation clearing")
+
+    for obj_name in object_names:
+        # 通过名称获取物体对象
+        ob = bpy.data.objects.get(obj_name)
+        if ob is None:
+            print(f"Warning: Object {obj_name} not found")
+            continue
+
+        # 额外检查：确保物体不在排除列表中
+        if ob.name in exclude_names:
+            print(f"Skipping excluded object: {ob.name}")
+            continue
+
         print(f"Processing object: {ob.name}")  # 调试语句
 
-        # 清除对象变换关键帧
+        # 特殊处理以"Tar"开头的对象
+        if ob.name.startswith("Tar"):
+            # 对于以Tar开头的物体，只清除Z轴动画数据
+            print(
+                f"Clearing only Z-axis animation for target object: {ob.name}")
+            if ob.animation_data and ob.animation_data.action:
+                # 删除Z轴(location[2])的关键帧
+                fcurves_to_remove = []
+                for fcurve in ob.animation_data.action.fcurves:
+                    if fcurve.data_path == "location" and fcurve.array_index == 2:
+                        fcurve.keyframe_points.clear()
+                        # 如果这条fcurve已经没有关键帧，标记为待删除
+                        if len(fcurve.keyframe_points) == 0:
+                            fcurves_to_remove.append(fcurve)
+
+                # 删除空的fcurve（可选）
+                for fcurve in fcurves_to_remove:
+                    ob.animation_data.action.fcurves.remove(fcurve)
+
+            # 处理形态键（如果有的话）
+            if hasattr(ob.data, "shape_keys") and ob.data.shape_keys:
+                # 首先归零所有shape key的值
+                for shape_key_block in ob.data.shape_keys.key_blocks:
+                    shape_key_block.value = 0.0
+                    print(f"Reset shape key {shape_key_block.name} to 0.0")
+
+                # 然后清除形态键动画数据
+                if ob.data.shape_keys.animation_data:
+                    print(
+                        f"Object {ob.name} has shape keys with animation data")
+                    if ob.data.shape_keys.animation_data.action:
+                        for fcurve in ob.data.shape_keys.animation_data.action.fcurves:
+                            print(
+                                f"Clearing {len(fcurve.keyframe_points)} shape key keyframes from {ob.name}")
+                            fcurve.keyframe_points.clear()
+                    # 清除形态键动画数据
+                    ob.data.shape_keys.animation_data_clear()
+
+            # 处理完Tar对象后直接跳到下一个对象
+            continue
+
+        # 清除对象变换关键帧（仅针对非Tar对象）
         if ob.animation_data:
             print(f"Object {ob.name} has animation_data")  # 调试语句
             if ob.animation_data.action:
@@ -54,25 +125,25 @@ def clear_all_keyframe(collection_name=None):
                         f"Clearing {len(fcurve.keyframe_points)} keyframes from {ob.name}")
                     fcurve.keyframe_points.clear()
 
-        # 清除形态键关键帧
+         # 清除形态键关键帧并归零形态键值
         if hasattr(ob.data, "shape_keys"):
-            if ob.data.shape_keys and ob.data.shape_keys.animation_data:
-                # 调试语句
-                print(f"Object {ob.name} has shape keys with animation data")
-                if ob.data.shape_keys.animation_data.action:
-                    for fcurve in ob.data.shape_keys.animation_data.action.fcurves:
-                        # 调试语句
-                        print(
-                            f"Clearing {len(fcurve.keyframe_points)} shape key keyframes from {ob.name}")
-                        fcurve.keyframe_points.clear()
+            if ob.data.shape_keys:
+                # 首先归零所有shape key的值
+                for shape_key_block in ob.data.shape_keys.key_blocks:
+                    shape_key_block.value = 0.0
+                    print(f"Reset shape key {shape_key_block.name} to 0.0")
 
-        # 清除自定义属性关键帧（如 is_vib）
-        if ob.animation_data and ob.animation_data.action:
-            for fcurve in ob.animation_data.action.fcurves:
-                # 检查是否为自定义属性的FCurve，特别是 is_vib 属性
-                if '["is_vib"]' in fcurve.data_path:
-                    print(f"Clearing is_vib keyframes from {ob.name}")
-                    fcurve.keyframe_points.clear()
+                # 然后清除形态键动画数据
+                if ob.data.shape_keys.animation_data:
+                    # 调试语句
+                    print(
+                        f"Object {ob.name} has shape keys with animation data")
+                    if ob.data.shape_keys.animation_data.action:
+                        for fcurve in ob.data.shape_keys.animation_data.action.fcurves:
+                            # 调试语句
+                            print(
+                                f"Clearing {len(fcurve.keyframe_points)} shape key keyframes from {ob.name}")
+                            fcurve.keyframe_points.clear()
 
         # 尝试清除所有动画数据
         if ob.animation_data:
