@@ -40,7 +40,7 @@ def check_and_exec(avatar, midiFilePath, track_numbers, channel_number, FPS, gui
     except:
         return "Invalid track number: " + track_numbers
 
-    midi_path = "asset/midi/" + midiFilePath
+    midi_path = "asset/midi/" + midiFilePath + ".mid"
     result = main(avatar, midi_path, track_number_list,
                   channel_number, FPS, guitar_string_notes, octave_down_checkbox, capo_number)
     return result
@@ -51,7 +51,8 @@ def refresh_asset_files():
     global json_files, midi_files
     json_files = [f.split(".")[0] for f in os.listdir(
         "asset/controller_infos") if f.endswith(".json")]
-    midi_files = [f for f in os.listdir("asset/midi") if f.endswith(".mid")]
+    midi_files = [f.replace(".mid", "")
+                  for f in os.listdir("asset/midi") if f.endswith(".mid")]
 
 
 refresh_asset_files()
@@ -63,7 +64,8 @@ with gr.Blocks() as demo:
                 midi_files, label="select midi 选择在目录asset/midi下面的MIDI 文件")  # type: ignore
             submit_check_midi_button = gr.Button(
                 "scan midi info扫描 MIDI 文件信息")
-            midi_info_text = gr.Textbox(label="MIDI 文件信息")
+            midi_info_text = gr.Textbox(
+                label="MIDI 文件信息", lines=4, max_lines=9)
             submit_check_midi_button.click(fn=export_midi_info, inputs=[
                 midi_dropdown], outputs=midi_info_text)
 
