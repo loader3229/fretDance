@@ -324,7 +324,7 @@ def move_objs_to_bones(armature):
         move_obj_to_bone_position(armature, "小指３."+suffix, "P_"+suffix)
 
 
-def add_ik_constraint_for_bone(armature, bone_name, target_name, pole_name=None, chain_length=3):
+def add_ik_constraint_for_bone(armature, bone_name, target_name, pole_name=None, chain_length=3, enable=True):
     bone = armature.pose.bones.get(bone_name)
     target_obj = bpy.data.objects.get(target_name)
     pole_obj = bpy.data.objects.get(pole_name) if pole_name else None
@@ -350,11 +350,12 @@ def add_ik_constraint_for_bone(armature, bone_name, target_name, pole_name=None,
 
     # 设置极向轴为 -Y 轴（通常用于手臂和腿部）
     ik_constraint.pole_angle = 0  # 可根据需要调整
+    ik_constraint.enabled = enable
 
     print(f"已为骨骼 {bone_name} 添加IK约束")
 
 
-def add_locked_track_constraint_for_bone(armature, bone_name, target_bone_name):
+def add_locked_track_constraint_for_bone(armature, bone_name, target_bone_name, enable=True):
     bone = armature.pose.bones.get(bone_name)
     target_bone = armature.pose.bones.get(target_bone_name)
 
@@ -374,11 +375,12 @@ def add_locked_track_constraint_for_bone(armature, bone_name, target_bone_name):
     locked_track_constraint.subtarget = target_bone_name  # 目标骨骼名称
     locked_track_constraint.track_axis = 'TRACK_Z'  # 跟踪轴向，可根据需要调整
     locked_track_constraint.lock_axis = 'LOCK_Y'    # 锁定轴向，可根据需要调整
+    locked_track_constraint.enabled = enable
 
     print(f"已为骨骼 {bone_name} 添加Locked Track约束，目标为 {target_bone_name}")
 
 
-def add_copy_rotation_constraint_for_bone(armature, bone_name, target_name, is_bone=False, copy_type='world'):
+def add_copy_rotation_constraint_for_bone(armature, bone_name, target_name, is_bone=False, copy_type='world', enable=True):
     """
     为骨骼添加复制旋转约束
 
@@ -428,6 +430,8 @@ def add_copy_rotation_constraint_for_bone(armature, bone_name, target_name, is_b
         copy_rotation_constraint.target_space = 'WORLD'
         copy_rotation_constraint.owner_space = 'WORLD'
 
+    copy_rotation_constraint.enabled = enable
+
     print(f"已为骨骼 {bone_name} 添加Copy Rotation约束，目标为 {target_name}")
 
 
@@ -473,7 +477,7 @@ def set_locked_tracks(armature):
                 full_bone_name = finger + str(index) + suffix
                 target_bone_name = "Tar_手首" + suffix
                 add_locked_track_constraint_for_bone(
-                    armature, full_bone_name, target_bone_name)
+                    armature, full_bone_name, target_bone_name, False)
 
     for finger in fingers:
         for index in full_indices:
@@ -481,7 +485,7 @@ def set_locked_tracks(armature):
                 full_bone_name = finger + str(index) + suffix
                 target_bone_name = "Tar_手首" + suffix
                 add_locked_track_constraint_for_bone(
-                    armature, full_bone_name, target_bone_name)
+                    armature, full_bone_name, target_bone_name, False)
 
     for bone_name in ["腕捩", "腕"]:
         for suffix in [".L", ".R"]:
