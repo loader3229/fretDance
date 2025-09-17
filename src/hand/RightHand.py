@@ -566,7 +566,7 @@ def calculateRightPick(avatar: str, stringIndex: int, isArpeggio: bool, should_s
 
     result = {}
 
-    if isArpeggio:
+    if isArpeggio and should_stay_at_lower_position:
         T_R = data['RIGHT_HAND_POSITIONS']['pend']
         H_R = data['RIGHT_HAND_POSITIONS']['Normal_Pend_H_R']
         HP_R = data['RIGHT_HAND_POSITIONS']['Normal_Pend_HP_R']
