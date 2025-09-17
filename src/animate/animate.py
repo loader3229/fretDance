@@ -618,8 +618,8 @@ def ElectronicRightHand2Animation(avatar: str, right_hand_recorder_file: str, ri
             played = calculateRightPick(
                 avatar, end_string, isArpeggio, should_end_at_lower_position, guitar_max_string_index)
 
-            if isArpeggio:
-                pick_position = -0.5 if should_start_at_lower_position else 5.5
+            if isArpeggio and should_end_at_lower_position:
+                pick_position = -0.5
             else:
                 pick_position = end_string + 0.5 if should_end_at_lower_position else end_string - 0.5
 
