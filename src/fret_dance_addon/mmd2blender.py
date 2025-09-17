@@ -169,6 +169,7 @@ def create_finger_MCH_bones(armature):
         bone_copy = bpy.context.object.data.edit_bones.new("MCH_" + bone.name)
         bone_copy.head = bone.head
         bone_copy.tail = bone.tail
+        bone_copy.roll = bone.roll
         bone_copy.parent = bone.parent
         bone_copy.use_deform = False
         # 将现骨骼的connected选项去掉
