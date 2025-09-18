@@ -1,8 +1,6 @@
 from ..guitar.GuitarString import GuitarString
-from ..guitar.GuitarNote import GuitarNote
 from ..guitar.Guitar import Guitar
 from ..utils.utils import lerp_by_fret
-from typing import List
 import math
 
 PRESSSTATE: dict = {
