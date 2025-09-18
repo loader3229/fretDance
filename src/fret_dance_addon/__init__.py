@@ -3,7 +3,7 @@ import os
 import bpy  # type: ignore
 from bpy.types import Panel, Operator  # type: ignore
 from bpy.props import EnumProperty, StringProperty  # type: ignore
-from bpy_extras.io_utils import ExportHelper  # type: ignore
+from bpy_extras.io_utils import ImportHelper, ExportHelper  # type: ignore
 
 # 使用相对导入
 from .base_states import BaseState, Instruments, BasePositions, LeftHandStates, RightHandStates
@@ -166,6 +166,37 @@ class FRET_DANCE_OT_export_info(Operator, ExportHelper):
         self.report({'INFO'}, f"Controller info exported to {self.filepath}")
         return {'FINISHED'}
 
+class FRET_DANCE_OT_import_info(Operator, ImportHelper):
+    """Import controller information from JSON file"""
+    bl_idname = "fret_dance.import_info"
+    bl_label = "Import Controller Info"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    # ExportHelper mixin class uses this
+    filename_ext = ".json"
+
+    __annotations__ = {
+        "filter_glob": StringProperty(
+            default="*.json",
+            options={'HIDDEN'},
+            maxlen=255,
+        )
+    }
+
+    def execute(self, context):
+        scene = context.scene
+        base_state = BaseState(Instruments(int(scene.fret_dance_instruments)))
+        
+        try:
+            # 导入控制器信息
+            base_state.import_controller_info(self.filepath)
+        except:
+            self.report({'ERROR'}, "Import Controller Info Error")
+            return {'CANCELLED'}
+        
+        self.report({'INFO'}, f"Controller info imported from {self.filepath}")
+        return {'FINISHED'}
+
 
 class FRET_DANCE_PT_main_panel(Panel):
     """Creates a Panel in the 3D View sidebar"""
@@ -213,9 +244,10 @@ class FRET_DANCE_PT_main_panel(Panel):
 
         # 保存控制信息
         box = layout.box()
-        box.label(text="Export Controller Info", icon='EXPORT')
+        box.label(text="Import and Export Controller Info", icon='EXPORT')
         row = box.row()
-        row.operator("fret_dance.export_info", text="Select File and Export")
+        row.operator("fret_dance.import_info", text="Import")
+        row.operator("fret_dance.export_info", text="Export")
 
 
 def register():
@@ -272,6 +304,7 @@ def register():
     bpy.utils.register_class(FRET_DANCE_OT_set_state)
     bpy.utils.register_class(FRET_DANCE_OT_load_state)
     bpy.utils.register_class(FRET_DANCE_OT_export_info)
+    bpy.utils.register_class(FRET_DANCE_OT_import_info)
     bpy.utils.register_class(WM_OT_mmd2blender_initialize)
     bpy.utils.register_class(FRET_DANCE_PT_main_panel)
 
@@ -280,6 +313,7 @@ def unregister():
     # 注销类
     bpy.utils.unregister_class(FRET_DANCE_PT_main_panel)
     bpy.utils.unregister_class(FRET_DANCE_OT_export_info)
+    bpy.utils.unregister_class(FRET_DANCE_OT_import_info)
     bpy.utils.unregister_class(FRET_DANCE_OT_load_state)
     bpy.utils.unregister_class(FRET_DANCE_OT_set_state)
     bpy.utils.unregister_class(FRET_DANCE_OT_check_status)
