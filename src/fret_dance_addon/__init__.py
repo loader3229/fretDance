@@ -166,6 +166,7 @@ class FRET_DANCE_OT_export_info(Operator, ExportHelper):
         self.report({'INFO'}, f"Controller info exported to {self.filepath}")
         return {'FINISHED'}
 
+
 class FRET_DANCE_OT_import_info(Operator, ImportHelper):
     """Import controller information from JSON file"""
     bl_idname = "fret_dance.import_info"
@@ -186,14 +187,14 @@ class FRET_DANCE_OT_import_info(Operator, ImportHelper):
     def execute(self, context):
         scene = context.scene
         base_state = BaseState(Instruments(int(scene.fret_dance_instruments)))
-        
+
         try:
             # 导入控制器信息
             base_state.import_controller_info(self.filepath)
         except:
             self.report({'ERROR'}, "Import Controller Info Error")
             return {'CANCELLED'}
-        
+
         self.report({'INFO'}, f"Controller info imported from {self.filepath}")
         return {'FINISHED'}
 
@@ -245,7 +246,7 @@ class FRET_DANCE_PT_main_panel(Panel):
         # 保存控制信息
         box = layout.box()
         box.label(text="Import and Export Controller Info", icon='EXPORT')
-        row = box.row()
+        row = box.row(align=True)
         row.operator("fret_dance.import_info", text="Import")
         row.operator("fret_dance.export_info", text="Export")
 
