@@ -363,8 +363,8 @@ def new_finger_position_method(avatar_data: Any, rightFingerPositions: List[int]
 
         finger_results = {}
 
-        # 计算手指的拨弦方向
-        t_move = finger_direct / np.linalg.norm(finger_direct)
+        # 计算手指的拨弦方向，这里要注意因为在blender中方向线与手指运动的方式是相反的，所以这里要加负号
+        t_move = -finger_direct / np.linalg.norm(finger_direct)
 
         # 处理ima三个手指的拨弦，它们的逻辑是相似的
         for finger_char, finger_idx, rest_pos in finger_configs:
