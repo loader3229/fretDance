@@ -1,6 +1,7 @@
 
 from enum import IntEnum, Enum
 import json
+import os
 from collections import defaultdict
 import mathutils
 import bpy  # type: ignore
@@ -30,6 +31,10 @@ class RightHandStates(Enum):
     LOW = "0"
     END = "end"
     HIGH = "3"
+
+
+def nested_dict():
+    return defaultdict(nested_dict)
 
 
 class BaseState():
@@ -1044,248 +1049,195 @@ class BaseState():
     def import_controller_info(self, file_name: str) -> None:
         """
         :param file_name: 输入文件名
-        usage:这个方法用于将所有控制器的位置和旋转信息从json文件导入
+        :usage: 这个方法用于将所有控制器的位置和旋转信息从json文件导入
         """
+        try:
+            # 检查文件是否存在
 
-        result = nested_dict()
+            if not os.path.exists(file_name):
+                raise FileNotFoundError(f"找不到文件: {file_name}")
 
-        with open(file_name, 'r') as f:
-            result = json.load(f)
+            result = nested_dict()
 
-        # 导入左手手指位置控制器信息
-        print("导入左手手指位置控制器信息...")
-        for recorder_key, recorder_name in self.left_hand_position_recorders.items():
-            if recorder_name in bpy.data.objects and not 'rotation' in recorder_key:
-                obj = bpy.data.objects[recorder_name]
+            # 尝试加载JSON文件
+            with open(file_name, 'r', encoding='utf-8') as f:
+                try:
+                    result = json.load(f)
+                except json.JSONDecodeError as e:
+                    raise ValueError(f"JSON文件格式错误: {e}")
 
-                # 解析记录器键名来确定分类
-                if recorder_key.startswith('barre_'):
-                    # 横按状态
-                    parts = recorder_key.split('_')
-                    if len(parts) >= 3:
-                        position_name = f"{parts[1].upper()}"
-                        controller_name = f'{parts[2]}_{parts[3]}'
-                        controller_name = controller_name.upper()
-                        # 查找对应的控制器名称
-                        for ctrl_key, ctrl_name in self.left_hand_controllers.items():
-                            if ctrl_name == controller_name:
-                                controller_name = ctrl_name
-                                break
-                        obj.location = result['BARRE_LEFT_HAND_POSITIONS'][position_name][controller_name]
-                else:
-                    # 其他状态 (Normal, Outer, Inner)
-                    parts = recorder_key.split('_')
-                    if len(parts) >= 4:
-                        state_name = parts[0]
-                        position_name = parts[1].upper()
-                        controller_name = parts[2] + '_' + parts[3]  # 例如 H_L
-                        controller_name = controller_name.upper()
+            loaded_info = []  # 用于记录成功加载的信息
 
-                        if state_name == 'normal':
-                            obj.location = result['NORMAL_LEFT_HAND_POSITIONS'][position_name][controller_name]
-                        elif state_name == 'outer':
-                            obj.location = result['OUTER_LEFT_HAND_POSITIONS'][position_name][controller_name]
-                        elif state_name == 'inner':
-                            obj.location = result['INNER_LEFT_HAND_POSITIONS'][position_name][controller_name]
+            # 导入左手手指位置控制器信息
+            print("导入左手手指位置控制器信息...")
+            left_hand_loaded = 0
+            for recorder_key, recorder_name in self.left_hand_position_recorders.items():
+                if recorder_name in bpy.data.objects and 'rotation' not in recorder_key:
+                    try:
+                        obj = bpy.data.objects[recorder_name]
 
-        # 导入指板位置记录器信息
-        print("导入指板位置记录器信息...")
-        for position_enum, recorder_name in self.guitar_fret_positions.items():
-            if recorder_name in bpy.data.objects:
-                obj = bpy.data.objects[recorder_name]
-                position_name = position_enum
-                parts = recorder_name.split('_')
-                if len(parts) >= 3:
-                    position_name = parts[1].capitalize(
-                    ) + "_" + parts[2].upper()
-                obj.location = result['LEFT_FINGER_POSITIONS'][position_name]
+                        # 解析记录器键名来确定分类
+                        if recorder_key.startswith('barre_'):
+                            # 横按状态
+                            parts = recorder_key.split('_')
+                            if len(parts) >= 3:
+                                position_name = f"{parts[1].upper()}"
+                                controller_name = f'{parts[2]}_{parts[3]}'
+                                controller_name = controller_name.upper()
+                                # 查找对应的控制器名称
+                                for ctrl_key, ctrl_name in self.left_hand_controllers.items():
+                                    if ctrl_name == controller_name:
+                                        controller_name = ctrl_name
+                                        break
+                                obj.location = result['BARRE_LEFT_HAND_POSITIONS'][position_name][controller_name]
+                                left_hand_loaded += 1
+                        else:
+                            # 其他状态 (Normal, Outer, Inner)
+                            parts = recorder_key.split('_')
+                            if len(parts) >= 4:
+                                state_name = parts[0]
+                                position_name = parts[1].upper()
+                                controller_name = parts[2] + \
+                                    '_' + parts[3]  # 例如 H_L
+                                controller_name = controller_name.upper()
 
-        # 导入旋转控制器信息
-        print("导入旋转控制器信息...")
-        for recorder_key, recorder_name in self.left_hand_position_recorders.items():
-            if recorder_name in bpy.data.objects and 'rotation' in recorder_key:
-                obj = bpy.data.objects[recorder_name]
+                                if state_name == 'normal':
+                                    obj.location = result['NORMAL_LEFT_HAND_POSITIONS'][position_name][controller_name]
+                                elif state_name == 'outer':
+                                    obj.location = result['OUTER_LEFT_HAND_POSITIONS'][position_name][controller_name]
+                                elif state_name == 'inner':
+                                    obj.location = result['INNER_LEFT_HAND_POSITIONS'][position_name][controller_name]
+                                left_hand_loaded += 1
+                    except KeyError as e:
+                        print(f"警告: 缺少左手位置数据键 {e}，跳过 {recorder_name}")
+                    except Exception as e:
+                        print(f"警告: 导入左手位置 {recorder_name} 时出错: {e}")
 
-                # 解析记录器键名
-                parts = recorder_key.split('_')
-                if len(parts) >= 4:
-                    state_name = parts[0].capitalize()
-                    position_name = parts[1].capitalize()
-                    controller_name = parts[2].upper() + \
-                        '_' + parts[3] + '_' + \
-                        parts[4].upper()  # 例如 H_rotation_L
+            loaded_info.append(f"左手手指位置控制器: {left_hand_loaded} 个")
 
-                    # 统一转换为四元数保存
-                    if obj.rotation_mode == 'QUATERNION':
-                        obj.rotation_quaternion = result['ROTATIONS'][controller_name][state_name][position_name]
-                    else:
-                        obj.rotation_euler = result['ROTATIONS'][controller_name][state_name][position_name]
+            # 导入指板位置记录器信息
+            print("导入指板位置记录器信息...")
+            fret_loaded = 0
+            for position_enum, recorder_name in self.guitar_fret_positions.items():
+                if recorder_name in bpy.data.objects:
+                    try:
+                        obj = bpy.data.objects[recorder_name]
+                        position_name = position_enum
+                        parts = recorder_name.split('_')
+                        if len(parts) >= 3:
+                            position_name = parts[1].capitalize(
+                            ) + "_" + parts[2].upper()
+                        obj.location = result['LEFT_FINGER_POSITIONS'][position_name]
+                        fret_loaded += 1
+                    except KeyError as e:
+                        print(f"警告: 缺少指板位置数据键 {e}，跳过 {recorder_name}")
+                    except Exception as e:
+                        print(f"警告: 导入指板位置 {recorder_name} 时出错: {e}")
 
-        # 导入右手位置控制器信息
-        print("导入右手位置控制器信息...")
-        for recorder_key, recorder_name in self.right_hand_position_recorders.items():
-            if recorder_name in bpy.data.objects:
-                obj = bpy.data.objects[recorder_name]
-                obj.location = result['RIGHT_HAND_POSITIONS'][recorder_name]
+            loaded_info.append(f"指板位置记录器: {fret_loaded} 个")
 
-        # 导入右手旋转控制器信息
-        print("导入右手旋转控制器信息...")
-        for recorder_key, recorder_name in self.right_hand_rotation_recorders.items():
-            if recorder_name in bpy.data.objects:
-                obj = bpy.data.objects[recorder_name]
+            # 导入旋转控制器信息
+            print("导入旋转控制器信息...")
+            rotation_loaded = 0
+            for recorder_key, recorder_name in self.left_hand_position_recorders.items():
+                if recorder_name in bpy.data.objects and 'rotation' in recorder_key:
+                    try:
+                        obj = bpy.data.objects[recorder_name]
 
-                # 解析记录器键名
-                parts = recorder_name.split('_')
-                position_name = parts[1]
+                        # 解析记录器键名
+                        parts = recorder_key.split('_')
+                        if len(parts) >= 4:
+                            state_name = parts[0].capitalize()
+                            position_name = parts[1].capitalize()
+                            controller_name = parts[2].upper(
+                            ) + '_' + parts[3] + '_' + parts[4].upper()  # 例如 H_rotation_L
 
-                # 统一转换为四元数保存
-                if obj.rotation_mode == 'QUATERNION':
-                    obj.rotation_quaternion = result['ROTATIONS']['H_rotation_R']['Normal'][position_name]
-                else:
-                    obj.rotation_euler = result['ROTATIONS']['H_rotation_R']['Normal'][position_name]
+                            # 统一转换为四元数保存
+                            if obj.rotation_mode == 'QUATERNION':
+                                obj.rotation_quaternion = result['ROTATIONS'][controller_name][state_name][position_name]
+                            else:
+                                obj.rotation_euler = result['ROTATIONS'][controller_name][state_name][position_name]
+                            rotation_loaded += 1
+                    except KeyError as e:
+                        print(f"警告: 缺少旋转数据键 {e}，跳过 {recorder_name}")
+                    except Exception as e:
+                        print(f"警告: 导入旋转 {recorder_name} 时出错: {e}")
 
-        # 导入辅助线信息
-        print("导入辅助线信息...")
-        for guideline_key, guideline_name in self.guidelines.items():
-            if guideline_name in bpy.data.objects:
-                obj = bpy.data.objects[guideline_name]
+            loaded_info.append(f"左手旋转控制器: {rotation_loaded} 个")
 
-                # 获取四元数并转换为方向向量
-                # obj_quaternion_normalized = obj.rotation_quaternion.normalized()
-                # rot_matrix = obj_quaternion_normalized.to_matrix()
-                # vec = rot_matrix @ mathutils.Vector((0, 0, 1))
+            # 导入右手位置控制器信息
+            print("导入右手位置控制器信息...")
+            right_hand_loaded = 0
+            for recorder_key, recorder_name in self.right_hand_position_recorders.items():
+                if recorder_name in bpy.data.objects:
+                    try:
+                        obj = bpy.data.objects[recorder_name]
+                        obj.location = result['RIGHT_HAND_POSITIONS'][recorder_name]
+                        right_hand_loaded += 1
+                    except KeyError as e:
+                        print(f"警告: 缺少右手位置数据键 {e}，跳过 {recorder_name}")
+                    except Exception as e:
+                        print(f"警告: 导入右手位置 {recorder_name} 时出错: {e}")
 
-                # vec = result['RIGHT_HAND_LINES'][guideline_name]['vector']
-                obj.location = result['RIGHT_HAND_LINES'][guideline_name]['location']
+            loaded_info.append(f"右手位置控制器: {right_hand_loaded} 个")
 
+            # 导入右手旋转控制器信息
+            print("导入右手旋转控制器信息...")
+            right_rotation_loaded = 0
+            for recorder_key, recorder_name in self.right_hand_rotation_recorders.items():
+                if recorder_name in bpy.data.objects:
+                    try:
+                        obj = bpy.data.objects[recorder_name]
 
-def nested_dict():
-    return defaultdict(nested_dict)
+                        # 解析记录器键名
+                        parts = recorder_name.split('_')
+                        position_name = parts[1]
 
+                        # 统一转换为四元数保存
+                        if obj.rotation_mode == 'QUATERNION':
+                            obj.rotation_quaternion = result['ROTATIONS']['H_rotation_R']['Normal'][position_name]
+                        else:
+                            obj.rotation_euler = result['ROTATIONS']['H_rotation_R']['Normal'][position_name]
+                        right_rotation_loaded += 1
+                    except KeyError as e:
+                        print(f"警告: 缺少右手旋转数据键 {e}，跳过 {recorder_name}")
+                    except Exception as e:
+                        print(f"警告: 导入右手旋转 {recorder_name} 时出错: {e}")
 
-    def import_controller_info(self, file_name: str) -> None:
-        """
-        :param file_name: 输入文件名
-        usage:这个方法用于将所有控制器的位置和旋转信息从json文件导入
-        """
-        import json
-        from collections import defaultdict
-        import mathutils
+            loaded_info.append(f"右手旋转控制器: {right_rotation_loaded} 个")
 
-        def nested_dict():
-            return defaultdict(nested_dict)
-        
-        result = nested_dict()
-        
-        with open(file_name, 'r') as f:
-            result = json.load(f)
-        
+            # 导入辅助线信息
+            print("导入辅助线信息...")
+            guideline_loaded = 0
+            for guideline_key, guideline_name in self.guidelines.items():
+                if guideline_name in bpy.data.objects:
+                    try:
+                        obj = bpy.data.objects[guideline_name]
+                        obj.location = result['RIGHT_HAND_LINES'][guideline_name]['location']
+                        guideline_loaded += 1
+                    except KeyError as e:
+                        print(f"警告: 缺少辅助线数据键 {e}，跳过 {guideline_name}")
+                    except Exception as e:
+                        print(f"警告: 导入辅助线 {guideline_name} 时出错: {e}")
 
-        # 导入左手手指位置控制器信息
-        print("导入左手手指位置控制器信息...")
-        for recorder_key, recorder_name in self.left_hand_position_recorders.items():
-            if recorder_name in bpy.data.objects and not 'rotation' in recorder_key:
-                obj = bpy.data.objects[recorder_name]
+            loaded_info.append(f"辅助线: {guideline_loaded} 个")
 
-                # 解析记录器键名来确定分类
-                if recorder_key.startswith('barre_'):
-                    # 横按状态
-                    parts = recorder_key.split('_')
-                    if len(parts) >= 3:
-                        position_name = f"{parts[1].upper()}"
-                        controller_name = f'{parts[2]}_{parts[3]}'
-                        controller_name = controller_name.upper()
-                        # 查找对应的控制器名称
-                        for ctrl_key, ctrl_name in self.left_hand_controllers.items():
-                            if ctrl_name == controller_name:
-                                controller_name = ctrl_name
-                                break
-                        obj.location = result['BARRE_LEFT_HAND_POSITIONS'][position_name][controller_name]
-                else:
-                    # 其他状态 (Normal, Outer, Inner)
-                    parts = recorder_key.split('_')
-                    if len(parts) >= 4:
-                        state_name = parts[0]
-                        position_name = parts[1].upper()
-                        controller_name = parts[2] + '_' + parts[3]  # 例如 H_L
-                        controller_name = controller_name.upper()
+            # 成功加载通知
+            print("\n" + "="*50)
+            print("控制器信息导入成功!")
+            print("="*50)
+            for info in loaded_info:
+                print(f"  • {info}")
+            print("="*50)
 
-                        if state_name == 'normal':
-                            obj.location = result['NORMAL_LEFT_HAND_POSITIONS'][position_name][controller_name]
-                        elif state_name == 'outer':
-                            obj.location = result['OUTER_LEFT_HAND_POSITIONS'][position_name][controller_name]
-                        elif state_name == 'inner':
-                            obj.location = result['INNER_LEFT_HAND_POSITIONS'][position_name][controller_name]
-
-        # 导入指板位置记录器信息
-        print("导入指板位置记录器信息...")
-        for position_enum, recorder_name in self.guitar_fret_positions.items():
-            if recorder_name in bpy.data.objects:
-                obj = bpy.data.objects[recorder_name]
-                position_name = position_enum
-                parts = recorder_name.split('_')
-                if len(parts) >= 3:
-                    position_name = parts[1].capitalize(
-                    ) + "_" + parts[2].upper()
-                obj.location = result['LEFT_FINGER_POSITIONS'][position_name]
-
-        # 导入旋转控制器信息
-        print("导入旋转控制器信息...")
-        for recorder_key, recorder_name in self.left_hand_position_recorders.items():
-            if recorder_name in bpy.data.objects and 'rotation' in recorder_key:
-                obj = bpy.data.objects[recorder_name]
-
-                # 解析记录器键名
-                parts = recorder_key.split('_')
-                if len(parts) >= 4:
-                    state_name = parts[0].capitalize()
-                    position_name = parts[1].capitalize()
-                    controller_name = parts[2].upper() + \
-                        '_' + parts[3] + '_' + \
-                        parts[4].upper()  # 例如 H_rotation_L
-
-                    # 统一转换为四元数保存
-                    if obj.rotation_mode == 'QUATERNION':
-                        obj.rotation_quaternion = result['ROTATIONS'][controller_name][state_name][position_name]
-                    else:
-                        obj.rotation_euler = result['ROTATIONS'][controller_name][state_name][position_name]
-
-        # 导入右手位置控制器信息
-        print("导入右手位置控制器信息...")
-        for recorder_key, recorder_name in self.right_hand_position_recorders.items():
-            if recorder_name in bpy.data.objects:
-                obj = bpy.data.objects[recorder_name]
-                obj.location = result['RIGHT_HAND_POSITIONS'][recorder_name]
-
-        # 导入右手旋转控制器信息
-        print("导入右手旋转控制器信息...")
-        for recorder_key, recorder_name in self.right_hand_rotation_recorders.items():
-            if recorder_name in bpy.data.objects:
-                obj = bpy.data.objects[recorder_name]
-
-                # 解析记录器键名
-                parts = recorder_name.split('_')
-                position_name = parts[1]
-
-                # 统一转换为四元数保存
-                if obj.rotation_mode == 'QUATERNION':
-                    obj.rotation_quaternion = result['ROTATIONS']['H_rotation_R']['Normal'][position_name]
-                else:
-                    obj.rotation_euler = result['ROTATIONS']['H_rotation_R']['Normal'][position_name]
-
-        # 导入辅助线信息
-        print("导入辅助线信息...")
-        for guideline_key, guideline_name in self.guidelines.items():
-            if guideline_name in bpy.data.objects:
-                obj = bpy.data.objects[guideline_name]
-
-                # 获取四元数并转换为方向向量
-                # obj_quaternion_normalized = obj.rotation_quaternion.normalized()
-                # rot_matrix = obj_quaternion_normalized.to_matrix()
-                # vec = rot_matrix @ mathutils.Vector((0, 0, 1))
-
-                # vec = result['RIGHT_HAND_LINES'][guideline_name]['vector']
-                obj.location = result['RIGHT_HAND_LINES'][guideline_name]['location']
+        except FileNotFoundError as e:
+            print(f"错误: {e}")
+        except ValueError as e:
+            print(f"错误: {e}")
+        except Exception as e:
+            print(f"导入控制器信息时发生未知错误: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 if __name__ == '__main__':
