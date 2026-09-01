@@ -1,7 +1,9 @@
+.ipynb_checkpoints/
 .history
 .venv
 __pycache__
 output/
 asset/midi
 asset/blender
+asset/controller_infos
 src/fret_dance_addon.zip
