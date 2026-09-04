@@ -36,14 +36,24 @@ GUITAR_TYPE_OPTIONS = {
 }
 
 
+def is_legacy_avatar(avatar: str) -> bool:
+    """判断角色数据是否为旧版本格式（缺少新版右手键名 Normal_P0_H_R / Normal_P3_H_R）"""
+    with open(os.path.join(CONTROLLER_DIR, avatar + ".json"), encoding="utf-8") as f:
+        data = json.load(f)
+    positions = data.get("RIGHT_HAND_POSITIONS", {})
+    return "Normal_P0_H_R" not in positions and "Normal_P3_H_R" not in positions
+
+
 def list_avatars():
     """列出所有可用的角色配置"""
     files = sorted(f[:-5] for f in os.listdir(CONTROLLER_DIR) if f.endswith(".json"))
     print("可用角色（asset/controller_infos 目录下）：")
     for name in files:
         tag = "电吉他" if name.endswith("_E") else "古典吉他/指弹"
-        print(f"  {name}  ({tag})")
+        display_name = f"{name}（旧版本）" if is_legacy_avatar(name) else name
+        print(f"  {display_name}  ({tag})")
     print("\n提示：以 _E 结尾的角色使用电吉他（匹克演奏），请确保 MIDI 也是电吉他的谱子。")
+    print("旧版本角色使用历史数据格式，会自动选择对应版本的动画计算方法，无需额外操作。")
     return files
 
 
