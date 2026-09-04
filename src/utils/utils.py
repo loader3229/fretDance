@@ -3,7 +3,33 @@ from ..guitar.Guitar import Guitar
 import numpy as np
 from numpy import linalg
 import itertools
-from mathutils import Vector, Quaternion
+try:
+    from mathutils import Vector, Quaternion
+except ImportError:
+    # 在 Blender 之外运行时（例如使用 CLI），mathutils 不可用，
+    # 使用 numpy 实现的最小兼容替代。Blender 内运行时仍然优先使用原生 mathutils。
+    class Vector:
+        def __init__(self, seq):
+            self.data = np.asarray(seq, dtype=float)
+
+        def __array__(self, dtype=None):
+            return self.data if dtype is None else self.data.astype(dtype)
+
+    class Quaternion:
+        """与 Blender mathutils.Quaternion 兼容的最小实现，构造参数顺序为 (w, x, y, z)"""
+
+        def __init__(self, seq):
+            w, x, y, z = seq
+            self.xyz = np.array([x, y, z], dtype=float)
+            self.w = float(w)
+
+        def __matmul__(self, other):
+            if isinstance(other, Vector):
+                v = other.data
+            else:
+                v = np.asarray(other, dtype=float)
+            # 四元数旋转：v' = v + 2 * cross(xyz, cross(xyz, v) + w * v)
+            return v + 2.0 * np.cross(self.xyz, np.cross(self.xyz, v) + self.w * v)
 
 
 def convertNotesToChord(notes: List[int], guitar: Guitar) -> Any:
