@@ -335,7 +335,7 @@ def main():
     # generate 子命令：生成动画
     parser_generate = subparsers.add_parser("generate", help="生成吉他演奏动画数据")
     parser_generate.add_argument("-a", "--avatar", required=True,
-                                 help="角色名称，为 asset/controller_infos 目录下的 json 文件名（不含后缀），如 1-ToyamaKasumi_E")
+                                 help="角色名称，为 asset/controller_infos 目录下的 json 文件名（不含后缀），如 asuka、Pei_E")
     parser_generate.add_argument("-m", "--midi", required=True,
                                  help="MIDI 文件路径，或 asset/midi 目录下的文件名（可省略 .mid 后缀）")
     parser_generate.add_argument("-t", "--tracks", default="0",
