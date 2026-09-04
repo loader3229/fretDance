@@ -85,15 +85,15 @@ with gr.Blocks() as demo:
         # 创建一个新的容器
         with gr.Column() as custom_string_notes_container:
             avatar_dropdown = gr.Dropdown(
-                json_files, label="select player 选择角色，后缀为_E的角色是使用的电吉它，要确保midi文件也是电吉他的谱子")  # type: ignore
+                json_files, label="select player 选择角色，后缀为_E的角色是使用的电吉他，要确保midi文件也是电吉他的谱子")  # type: ignore
             # 添加吉他类型的下拉菜单
             guitar_type_dropdown = gr.Dropdown(
                 guitar_type_options.keys(), label="select guitar type 选择吉他类型")  # type: ignore
             # 将复选框和文本框添加到容器中
             use_custom_string_notes_checkbox = gr.Checkbox(
-                label="use custom string notes 是否使用自定义弦音高。勾选这个以后，吉它类型的选择将变为无效")
+                label="use custom string notes 是否使用自定义弦音高。勾选这个以后，吉他类型的选择将变为无效")
             custom_string_notes_textbox = gr.Textbox(
-                value="e, b, G, D, A, E1", label="custom string notes 可以自定义弦数量和音高，用逗号分隔，以下是标准吉它的定弦示范")
+                value="e, b, G, D, A, E1", label="custom string notes 可以自定义弦数量和音高，用逗号分隔，以下是标准吉他的定弦示范")
 
     with gr.Row() as output_container:
         submit_button = gr.Button(value="submit 提交")

@@ -163,7 +163,7 @@ class BaseState():
             # 电吉他演奏时的拨弦方向
             self.guidelines['left_thumb_move_direction'] = 'T_line'
         else:
-            # 指弹吉它和bass演奏时要记录手背的朝向
+            # 指弹吉他和bass演奏时要记录手背的朝向
             self.guidelines['left_hand_high_normal'] = 'right_hand_normal_p3'
             self.guidelines['left_hand_low_normal'] = 'right_hand_normal_p0'
             self.guidelines['thumb_direction_high'] = 'right_thumb_direct_p3'

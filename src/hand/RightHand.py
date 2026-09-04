@@ -720,7 +720,7 @@ def caculateFingerPositionByHandPosition(H_R: np.ndarray, h3: np.ndarray, avatar
 
     计算方法是：
     通过每个手指的方向连线（方向球与h3的连线），以及运动方向的起点（p指起点是p5，其它手指是h3），
-    再加上代表吉它指板normal方向的向量guitar_suface_vector，我们可以得到一个平面
+    再加上代表吉他指板normal方向的向量guitar_suface_vector，我们可以得到一个平面
     然后再计算这个平面，与代表弦的直线string_line的交点，就是手指在拨弦时的起点。
     """
     direction_ball_list = ['T', 'I', 'M', 'R']

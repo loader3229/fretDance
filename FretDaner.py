@@ -24,7 +24,7 @@ def generateLeftHandRecoder(guitarNote, guitar: Guitar, handPoseRecordPool: Hand
     max_note = guitar.guitarStrings[0].getBaseNote() + 22
     notes = processedNotes(notes, min_note, max_note)
 
-    # calculate all possible chords, including the position information of notes on the guitar. 计算所有可能的和弦,包含音符在吉它上的位置信息。
+    # calculate all possible chords, including the position information of notes on the guitar. 计算所有可能的和弦,包含音符在吉他上的位置信息。
     chords = convertNotesToChord(notes, guitar)
 
     # init current record list. 记录池先更新初始化当前记录列表。
@@ -32,7 +32,7 @@ def generateLeftHandRecoder(guitarNote, guitar: Guitar, handPoseRecordPool: Hand
     fingerPositionsList = []
     handPoseRecordCount = 0
 
-    # calculate all possible fingerings, including the position information of fingers on the guitar. 计算所有可能的按法，包含手指在吉它上的位置信息。
+    # calculate all possible fingerings, including the position information of fingers on the guitar. 计算所有可能的按法，包含手指在吉他上的位置信息。
     for chord in chords:
         possibleFingerPositions = convertChordTofingerPositions(chord)
         if len(possibleFingerPositions) == 0:
@@ -257,7 +257,7 @@ def main(avatar: str, midiFilePath: str, track_number: List[int], channel_number
 
     guitar_string_list = createGuitarStrings(guitar_string_notes)
     max_string_index = len(guitar_string_list) - 1
-    # 初始化吉它
+    # 初始化吉他
     guitar = Guitar(guitar_string_list)
     # 设定各手指状态
     leftFingers = [
@@ -342,7 +342,7 @@ def main(avatar: str, midiFilePath: str, track_number: List[int], channel_number
     animated_guitar_string(left_hand_recorder_file,
                            guitar_string_recorder_file, FPS)
 
-    finall_info = f'全部执行完毕:\nrecorder文件被保存到了:{left_hand_recorder_file} 和 {right_hand_recorder_file}\n动画文件被保存到了:{left_hand_animation_file} 和 {right_hand_animation_file}\n吉它弦动画文件被保存到了:{guitar_string_recorder_file}'
+    finall_info = f'全部执行完毕:\nrecorder文件被保存到了:{left_hand_recorder_file} 和 {right_hand_recorder_file}\n动画文件被保存到了:{left_hand_animation_file} 和 {right_hand_animation_file}\n吉他弦动画文件被保存到了:{guitar_string_recorder_file}'
 
     print(finall_info)
 

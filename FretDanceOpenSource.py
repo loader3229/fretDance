@@ -303,7 +303,7 @@ recorder文件被保存到了:
 动画文件被保存到了:
   - {left_hand_animation_file}
   - {right_hand_animation_file}
-吉它弦动画文件被保存到了:
+吉他弦动画文件被保存到了:
   - {guitar_string_recorder_file}
 Blender 插件动画配置文件（在插件"生成动画"中选择此文件即可一键生成全部动画）:
   - {animation_config_file}''')

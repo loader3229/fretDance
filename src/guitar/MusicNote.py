@@ -17,7 +17,7 @@ KEYNOTES: dict[str, int] = {
 class MusicNote:
     """
     params:
-    num: Number of notes, Calculated with C note (3rd fret on the 5th string of standard guitar tuning) as 48. 音符数，以C音（吉它标准调弦的5弦3品）为48来计算
+    num: Number of notes, Calculated with C note (3rd fret on the 5th string of standard guitar tuning) as 48. 音符数，以C音（吉他标准调弦的5弦3品）为48来计算
     """
 
     def __init__(self, num: int):

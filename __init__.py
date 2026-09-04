@@ -6,7 +6,7 @@
 
     先得到当前和弦ChordNote所有可能的位置Chord：
         先把和弦里的每个音符note分解成可能的位置position；
-            组合所有可能的位置Chords，开始过滤掉不可能在吉它上存在的位置组合，返回过滤后的组合FilteredChords
+            组合所有可能的位置Chords，开始过滤掉不可能在吉他上存在的位置组合，返回过滤后的组合FilteredChords
 
     对于返回的组合中的每一个位置Chord，求解它所有可能的按法，并返回按法的组合AllDancer;
     对按法组合进行淘汰，只保留前N个消耗行动力最小的dancer。
