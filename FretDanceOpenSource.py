@@ -29,7 +29,8 @@ OUTPUT_DIRS = [
     os.path.join("output", "animation_config"),
 ]
 
-# 各吉他类型的默认弦音高（从高音弦到低音弦排列）
+# 各吉他类型的默认弦音高（从高音弦到低音弦排列），根据角色名后缀自动选择：
+# _E 后缀用电吉他，_B 后缀用贝斯，其它用古典吉他
 GUITAR_TYPE_OPTIONS = {
     "guitar": ["e", "b", "G", "D", "A", "E1"],
     "bass": ["G1", "D1", "A1", "E2"],
@@ -49,10 +50,15 @@ def list_avatars():
     files = sorted(f[:-5] for f in os.listdir(CONTROLLER_DIR) if f.endswith(".json"))
     print("可用角色（asset/controller_infos 目录下）：")
     for name in files:
-        tag = "电吉他" if name.endswith("_E") else "古典吉他/指弹"
+        if name.endswith("_E"):
+            tag = "电吉他"
+        elif name.endswith("_B"):
+            tag = "贝斯"
+        else:
+            tag = "古典吉他/指弹"
         display_name = f"{name}（旧版本）" if is_legacy_avatar(name) else name
         print(f"  {display_name}  ({tag})")
-    print("\n提示：以 _E 结尾的角色使用电吉他（匹克演奏），请确保 MIDI 也是电吉他的谱子。")
+    print("\n提示：以 _E 结尾的角色使用电吉他（匹克演奏），以 _B 结尾的角色使用贝斯（指弹），请确保 MIDI 也是对应的谱子。")
     print("旧版本角色使用历史数据格式，会自动选择对应版本的动画计算方法，无需额外操作。")
     return files
 
@@ -123,8 +129,10 @@ def cmd_generate(args):
 
     if args.string_notes:
         guitar_string_notes = parse_string_notes(args.string_notes)
+    elif avatar.endswith("_B"):
+        guitar_string_notes = GUITAR_TYPE_OPTIONS["bass"]
     else:
-        guitar_string_notes = GUITAR_TYPE_OPTIONS[args.guitar_type]
+        guitar_string_notes = GUITAR_TYPE_OPTIONS["guitar"]
 
     track_number = parse_tracks(args.tracks)
 
@@ -336,10 +344,8 @@ def main():
                                  help="MIDI 通道编号，-1 表示接受所有通道（默认: -1）")
     parser_generate.add_argument("--fps", type=int, default=24,
                                  help="Blender 中的 FPS（默认: 24）")
-    parser_generate.add_argument("-g", "--guitar-type", choices=GUITAR_TYPE_OPTIONS.keys(), default="guitar",
-                                 help="吉他类型（默认: guitar）")
     parser_generate.add_argument("-s", "--string-notes", default=None,
-                                 help='自定义弦音高，用逗号分隔，如 "e, b, G, D, A, E1"。设置后吉他类型选项失效')
+                                 help='自定义弦音高，用逗号分隔，如 "e, b, G, D, A, E1"。默认根据角色名后缀自动选择：_E 用电吉他，_B 用贝斯，其它用古典吉他')
     parser_generate.add_argument("--octave-down", action="store_true",
                                  help="整体降一个八度")
     parser_generate.add_argument("--capo", type=int, default=0,
