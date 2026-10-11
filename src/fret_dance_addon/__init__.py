@@ -3,13 +3,14 @@ import os
 import json
 import bpy  # type: ignore
 from bpy.types import Panel, Operator  # type: ignore
-from bpy.props import EnumProperty, StringProperty  # type: ignore
+from bpy.props import EnumProperty, StringProperty, BoolProperty  # type: ignore
 from bpy_extras.io_utils import ImportHelper, ExportHelper  # type: ignore
 from .make_animation import clear_all_keyframe, clear_string_animation, animate_hand, animate_string
 
 # 使用相对导入
 from .base_states import BaseState, Instruments, BasePositions, LeftHandStates, RightHandStates
 from .mmd2blender import mmd2blender
+from .one_click_init import create_guitar_points, one_click_initialize, get_string_count
 
 bl_info = {
     "name": "FretDance Controller Setup",
@@ -65,6 +66,69 @@ class WM_OT_mmd2blender_initialize(bpy.types.Operator):
         except Exception as e:
             self.report({'ERROR'}, f"初始化失败: {str(e)}")
             return {'CANCELLED'}
+        return {'FINISHED'}
+
+
+class FRET_DANCE_OT_create_guitar_points(Operator):
+    """创建1-6弦0品、12品的12个定位点空物体(S1_F0~S6_F12)，创建后需将它们移动到吉他弦的实际位置"""
+    bl_idname = "fret_dance.create_guitar_points"
+    bl_label = "创建吉他定位点"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        created, existed = create_guitar_points()
+        if created:
+            self.report(
+                {'INFO'}, f"已创建{created}个吉他定位点，请将它们移动到对应弦的0品/12品位置")
+        else:
+            self.report(
+                {'INFO'}, f"{existed}个吉他定位点均已存在，无需重复创建")
+        return {'FINISHED'}
+
+
+class FRET_DANCE_OT_one_click_init(Operator):
+    """创建控制器与记录器，根据吉他定位点(S1_F0~S6_F12)自动计算摆放指板记录器Fret_P0~P3。勾选「记录基准状态」时，还会把当前控制器姿态记录为所有左右手基准状态"""
+    bl_idname = "fret_dance.one_click_init"
+    bl_label = "一键初始化"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        scene = context.scene
+        instruments = Instruments(int(scene.fret_dance_instruments))
+        result = one_click_initialize(
+            instruments, record_states=scene.fret_dance_one_click_record_states)
+
+        # Fret摆放详情打印到控制台
+        if result['fret_placed']:
+            print("一键初始化完成，Fret_P0~P3摆放位置:")
+            for recorder_name, location in result['positions'].items():
+                print(
+                    f"  {recorder_name}: [{location.x:.4f}, {location.y:.4f}, {location.z:.4f}]")
+
+        # 汇总报告
+        status = 'INFO'
+        parts = []
+        if result['fret_placed']:
+            parts.append("Fret_P0~P3已根据吉他定位点摆放")
+            if result['missing']:
+                status = 'WARNING'
+                parts.append(
+                    f"未用到的定位点缺失: {', '.join(result['missing'])}")
+        else:
+            status = 'WARNING'
+            if len(result['missing']) == 2 * get_string_count(instruments):
+                parts.append(
+                    "尚未创建吉他定位点，未摆放Fret_P0~P3。请先点击「创建吉他定位点」并将它们移动到吉他弦上")
+            else:
+                parts.append(
+                    f"缺少定位点({', '.join(result['missing'])})，未摆放Fret_P0~P3")
+
+        if result['states_recorded'] is not None:
+            states = result['states_recorded']
+            parts.append(
+                f"基准状态已记录(左手{states['left']}组、右手{states['right']}个状态)")
+
+        self.report(status, "；".join(parts))
         return {'FINISHED'}
 
 
@@ -473,6 +537,18 @@ class FRET_DANCE_PT_main_panel(Panel):
         box.label(text="初始化", icon='TOOL_SETTINGS')
         row = box.row()
         row.prop(scene, "fret_dance_instruments")
+
+        # 一键初始化
+        one_click_box = box.box()
+        one_click_box.label(text="一键初始化", icon='CHECKMARK')
+        one_click_box.label(text="先创建定位点并移到弦上，再一键初始化", icon='INFO')
+        row = one_click_box.row()
+        row.operator("fret_dance.create_guitar_points")
+        row = one_click_box.row()
+        row.prop(scene, "fret_dance_one_click_record_states")
+        row = one_click_box.row()
+        row.operator("fret_dance.one_click_init")
+
         row = box.row(align=True)
         row.operator("fret_dance.check_status")
         row.operator("fret_dance.setup_objects")
@@ -582,9 +658,17 @@ def register():
         subtype='FILE_PATH'
     )
 
+    bpy.types.Scene.fret_dance_one_click_record_states = BoolProperty(
+        name="记录基准状态",
+        description="一键初始化时，将当前控制器姿态记录为所有左手组合(P0~P4 × Normal/Outer/Inner/Barre，跳过无效组合)和右手3个状态的基准状态。注意: 重复运行会用当前姿态覆盖已记录的状态数据，仅更新Fret点时可取消勾选",
+        default=True
+    )
+
     # 注册类
     bpy.utils.register_class(FRET_DANCE_OT_setup_objects)
     bpy.utils.register_class(FRET_DANCE_OT_check_status)
+    bpy.utils.register_class(FRET_DANCE_OT_create_guitar_points)
+    bpy.utils.register_class(FRET_DANCE_OT_one_click_init)
     bpy.utils.register_class(FRET_DANCE_OT_set_state)
     bpy.utils.register_class(FRET_DANCE_OT_load_state)
     bpy.utils.register_class(FRET_DANCE_OT_export_info)
@@ -607,6 +691,8 @@ def unregister():
     bpy.utils.unregister_class(FRET_DANCE_OT_set_state)
     bpy.utils.unregister_class(FRET_DANCE_OT_check_status)
     bpy.utils.unregister_class(FRET_DANCE_OT_setup_objects)
+    bpy.utils.unregister_class(FRET_DANCE_OT_one_click_init)
+    bpy.utils.unregister_class(FRET_DANCE_OT_create_guitar_points)
     bpy.utils.unregister_class(WM_OT_mmd2blender_initialize)
     bpy.utils.unregister_class(FRET_DANCE_OT_select_animation_file)
     bpy.utils.unregister_class(FRET_DANCE_OT_generate_all_animation)
@@ -620,6 +706,7 @@ def unregister():
     del bpy.types.Scene.fret_dance_left_hand_states
     del bpy.types.Scene.fret_dance_right_hand_states
     del bpy.types.Scene.fret_dance_animation_file
+    del bpy.types.Scene.fret_dance_one_click_record_states
 
 
 if __name__ == "__main__":

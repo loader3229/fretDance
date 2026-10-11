@@ -86,6 +86,9 @@ class BaseState():
 
         self.guitar_fret_positions = {}
         for position in BasePositions:
+            # 动画生成只使用P0~P3，不创建Fret_P4
+            if position == BasePositions.P4:
+                continue
             # 用于记录指板位置的四个基本点
             self.guitar_fret_positions[position.value] = f'Fret_{position.value}'
 
@@ -315,6 +318,11 @@ class BaseState():
         """
         一次性设置所有控制器和记录器
         """
+        # 删除场景中已废弃的Fret_P4记录器（动画生成不使用）
+        if 'Fret_P4' in bpy.data.objects:
+            bpy.data.objects.remove(bpy.data.objects['Fret_P4'], do_unlink=True)
+            print("已删除废弃的Fret_P4记录器")
+
         # 记录添加控件前addons集合及其子集合中的所有物体名称
         self.pre_obj_names = []
         if "addons" in bpy.data.collections:
