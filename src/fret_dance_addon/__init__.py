@@ -128,7 +128,7 @@ class FRET_DANCE_OT_one_click_init(Operator):
             parts.append(
                 f"基准状态已记录(左手{states['left']}组、右手{states['right']}个状态)")
 
-        self.report(status, "；".join(parts))
+        self.report({status}, "；".join(parts))
         return {'FINISHED'}
 
 
