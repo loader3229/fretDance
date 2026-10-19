@@ -14,9 +14,24 @@ Tutorial in BiliBili: [FretDance Video Tutorial](https://www.bilibili.com/video/
 
 ### About Addon
 
-The content in the `fret_dance_addon` folder is a Blender add-on. To use it, compress the entire folder into a zip file, then locate and install this zip file through Blender's add-on installation interface.
+The content in the `src/fret_dance_addon` folder is a Blender add-on. To use it, compress the entire folder into a zip file, then locate and install this zip file through Blender's add-on installation interface.
 
-The add-on is designed to assist with the initialization setup process for character models.
+The add-on is designed to assist with the initialization setup process for character models. See the addon manual: [src/fret_dance_addon/readme.md](src/fret_dance_addon/readme.md) and the one-click init guide: [src/fret_dance_addon/one_click_init.md](src/fret_dance_addon/one_click_init.md).
+
+### Quick Start (CLI)
+
+Requires Python 3.10+. With [uv](https://docs.astral.sh/uv/) installed:
+
+```bash
+uv sync
+uv run FretDanceOpenSource.py list        # list available avatars (asset/controller_infos)
+uv run FretDanceOpenSource.py info lemon  # inspect a MIDI file in asset/midi
+uv run FretDanceOpenSource.py generate -a asuka -m lemon   # generate animation data
+```
+
+Key `generate` options: `-t` MIDI tracks, `-c` channel, `--fps` (default 24), `-s` custom string notes, `--capo`, `--octave-down`, `--disable-barre`, `--use-harm-note`. Full parameter reference: [docs/getting-started.md](docs/getting-started.md).
+
+There is also a Gradio web UI (`uv run main.py`, default FPS 30) and an original notebook version (`fretDancer.ipynb`).
 
 ### Note to English Readers:
 

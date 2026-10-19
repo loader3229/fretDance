@@ -87,7 +87,7 @@ class FRET_DANCE_OT_create_guitar_points(Operator):
 
 
 class FRET_DANCE_OT_one_click_init(Operator):
-    """创建控制器与记录器，根据吉他定位点(S1_F0~S6_F12)自动计算摆放指板记录器Fret_P0~P3。勾选「记录基准状态」时，还会把当前控制器姿态记录为所有左右手基准状态"""
+    """创建控制器与记录器，根据吉他定位点(S1_F0~S6_F12)自动摆放指板记录器Fret_P0~P3和右手Low/End/High三个状态的记录器。勾选「记录基准状态」时，还会把控制器姿态记录为所有左右手基准状态（右手先摆到期望位置再记录）"""
     bl_idname = "fret_dance.one_click_init"
     bl_label = "一键初始化"
     bl_options = {'REGISTER', 'UNDO'}
@@ -122,6 +122,9 @@ class FRET_DANCE_OT_one_click_init(Operator):
             else:
                 parts.append(
                     f"缺少定位点({', '.join(result['missing'])})，未摆放Fret_P0~P3")
+
+        if result['right_hand_placed']:
+            parts.append("右手Low/End/High记录器已摆到吉他期望位置")
 
         if result['states_recorded'] is not None:
             states = result['states_recorded']
