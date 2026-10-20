@@ -70,16 +70,17 @@ class WM_OT_mmd2blender_initialize(bpy.types.Operator):
 
 
 class FRET_DANCE_OT_create_guitar_points(Operator):
-    """创建1-6弦0品、12品的12个定位点空物体(S1_F0~S6_F12)，创建后需将它们移动到吉他弦的实际位置"""
+    """按当前乐器类型创建6个定位点空物体：1弦与最低弦的0品/12品(S1_F0、S1_F12、S6_F0、S6_F12，贝斯为S4)以及右手基准位置S1_Right、S6_Right(贝斯为S4)，创建后需将它们移动到吉他的实际位置"""
     bl_idname = "fret_dance.create_guitar_points"
     bl_label = "创建吉他定位点"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        created, existed = create_guitar_points()
+        instruments = Instruments(int(context.scene.fret_dance_instruments))
+        created, existed = create_guitar_points(get_string_count(instruments))
         if created:
             self.report(
-                {'INFO'}, f"已创建{created}个吉他定位点，请将它们移动到对应弦的0品/12品位置")
+                {'INFO'}, f"已创建{created}个吉他定位点，请将它们移动到对应弦的0品/12品及右手基准位置")
         else:
             self.report(
                 {'INFO'}, f"{existed}个吉他定位点均已存在，无需重复创建")
@@ -87,7 +88,7 @@ class FRET_DANCE_OT_create_guitar_points(Operator):
 
 
 class FRET_DANCE_OT_one_click_init(Operator):
-    """创建控制器与记录器，根据吉他定位点(S1_F0~S6_F12)自动摆放指板记录器Fret_P0~P3和右手Low/End/High三个状态的记录器。勾选「记录基准状态」时，还会把控制器姿态记录为所有左右手基准状态（右手先摆到期望位置再记录）"""
+    """创建控制器与记录器，根据6个吉他定位点(S1_F0、S1_F12、S6_F0、S6_F12、S1_Right、S6_Right)自动摆放指板记录器Fret_P0~P3和右手Low/End/High三个状态的记录器。勾选「记录基准状态」时，还会把控制器姿态记录为所有左右手基准状态（右手先摆到期望位置再记录）"""
     bl_idname = "fret_dance.one_click_init"
     bl_label = "一键初始化"
     bl_options = {'REGISTER', 'UNDO'}
@@ -110,15 +111,11 @@ class FRET_DANCE_OT_one_click_init(Operator):
         parts = []
         if result['fret_placed']:
             parts.append("Fret_P0~P3已根据吉他定位点摆放")
-            if result['missing']:
-                status = 'WARNING'
-                parts.append(
-                    f"未用到的定位点缺失: {', '.join(result['missing'])}")
         else:
             status = 'WARNING'
-            if len(result['missing']) == 2 * get_string_count(instruments):
+            if len(result['missing']) == 6:
                 parts.append(
-                    "尚未创建吉他定位点，未摆放Fret_P0~P3。请先点击「创建吉他定位点」并将它们移动到吉他弦上")
+                    "尚未创建吉他定位点，未摆放Fret_P0~P3。请先点击「创建吉他定位点」并将它们移动到吉他的实际位置")
             else:
                 parts.append(
                     f"缺少定位点({', '.join(result['missing'])})，未摆放Fret_P0~P3")

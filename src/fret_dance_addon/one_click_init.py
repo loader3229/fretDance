@@ -11,7 +11,7 @@ FRET_1_RATIO = 2 * (1 - 2 ** (-1 / 12))
 GUITAR_POINT_COLLECTION = "GuitarPoints"
 
 # 右手默认摆放参数（单位：米），之后可以摆好姿势重新Set覆盖
-PICK_RATIO = 1.25        # 拨弦点在弦方向上的位置：距琴枕0品~12品距离的倍数（约音孔上方）
+DEFAULT_PICK_RATIO = 1.25  # 新建右手定位点时的默认位置：距琴枕0品~12品距离的倍数（约音孔上方）
 FINGER_SPREAD = 0.008    # 多根手指落在同一根弦上时，沿弦方向互相错开的间距
 RIGHT_HAND_BACK = 0.18   # 手掌控制器H_R位于指尖质心后方（朝琴头方向）的距离
 RIGHT_HAND_UP = 0.04     # 手掌控制器H_R高于弦平面的距离
@@ -30,11 +30,18 @@ def guitar_point_name(string: int, fret: int) -> str:
     return f"S{string}_F{fret}"
 
 
-def create_guitar_points() -> tuple[int, int]:
+def right_point_name(string: int) -> str:
+    """获取右手定位点物体名，表示第string根弦上右手放置的基准位置（约拨弦处）"""
+    return f"S{string}_Right"
+
+
+def create_guitar_points(string_count: int = 6) -> tuple[int, int]:
     """
-    创建1-6弦在0品和12品的12个定位点空物体，已存在的复用。
-    物体名分别为S1_F0、S1_F12 ... S6_F0、S6_F12，创建后需要移动到吉他弦的实际位置。
-    返回(新建数量, 已存在数量)
+    创建1弦和最低弦所需的6个定位点空物体，已存在的复用：
+    - 品定位点：S1_F0、S1_F12、S{最低弦}_F0、S{最低弦}_F12（吉他为S6，贝斯为S4）
+    - 右手定位点：S1_Right、S{最低弦}_Right（对应弦上右手放置的基准位置）
+    其余弦的位置与右手各状态的摆放位置均可由这6个点计算得到。
+    创建后需要移动到吉他的实际位置。返回(新建数量, 已存在数量)
     """
     # 确保在对象模式下操作
     if bpy.context.mode != 'OBJECT':
@@ -52,39 +59,47 @@ def create_guitar_points() -> tuple[int, int]:
 
     created = 0
     existed = 0
-    # 默认布局：1弦在+X侧，品沿-Y方向延伸，创建后由用户移动到吉他弦的实际位置
+    low_string = string_count
+    # 默认布局：1弦在+X侧，品沿-Y方向延伸，创建后由用户移动到吉他的实际位置
     string_spacing = 0.01
     fret_12_distance = 0.3
+    # 右手定位点默认放在约音孔上方（0品~12品距离的DEFAULT_PICK_RATIO倍处）
+    pick_distance = fret_12_distance * DEFAULT_PICK_RATIO
 
-    for string in range(1, 7):
-        for fret in (0, 12):
-            name = guitar_point_name(string, fret)
-            if name in bpy.data.objects:
-                existed += 1
-                continue
+    # (物体名, 默认位置)
+    defaults = [
+        (guitar_point_name(1, 0), ((low_string - 1) / 2 * string_spacing, 0, 0)),
+        (guitar_point_name(1, 12), ((low_string - 1) / 2 * string_spacing, -fret_12_distance, 0)),
+        (guitar_point_name(low_string, 0), (-(low_string - 1) / 2 * string_spacing, 0, 0)),
+        (guitar_point_name(low_string, 12), (-(low_string - 1) / 2 * string_spacing, -fret_12_distance, 0)),
+        (right_point_name(1), ((low_string - 1) / 2 * string_spacing, -pick_distance, 0)),
+        (right_point_name(low_string), (-(low_string - 1) / 2 * string_spacing, -pick_distance, 0)),
+    ]
 
-            point = bpy.data.objects.new(name, None)
-            point.empty_display_type = 'SPHERE'
-            point.empty_display_size = 0.01
-            point.location = (
-                (3.5 - string) * string_spacing,
-                -fret_12_distance * fret / 12,
-                0,
-            )
-            collection.objects.link(point)
-            created += 1
+    for name, location in defaults:
+        if name in bpy.data.objects:
+            existed += 1
+            continue
+
+        point = bpy.data.objects.new(name, None)
+        point.empty_display_type = 'SPHERE'
+        point.empty_display_size = 0.01
+        point.location = location
+        collection.objects.link(point)
+        created += 1
 
     return created, existed
 
 
-def read_guitar_points(string_count: int) -> tuple[dict, list]:
+def read_guitar_points(string_count: int) -> tuple[dict, dict, list]:
     """
-    读取1到string_count弦的0品、12品定位点位置（世界坐标）
-    返回({(弦序号, 品数): Vector}, 缺失的物体名列表)
+    读取1弦与最低弦的0品、12品定位点及右手定位点位置（世界坐标）
+    返回(品定位点{(弦序号, 品数): Vector}, 右手定位点{弦序号: Vector}, 缺失的物体名列表)
     """
     points = {}
+    right_points = {}
     missing = []
-    for string in range(1, string_count + 1):
+    for string in (1, string_count):
         for fret in (0, 12):
             name = guitar_point_name(string, fret)
             obj = bpy.data.objects.get(name)
@@ -92,7 +107,13 @@ def read_guitar_points(string_count: int) -> tuple[dict, list]:
                 missing.append(name)
             else:
                 points[(string, fret)] = obj.matrix_world.translation.copy()
-    return points, missing
+        name = right_point_name(string)
+        obj = bpy.data.objects.get(name)
+        if obj is None:
+            missing.append(name)
+        else:
+            right_points[string] = obj.matrix_world.translation.copy()
+    return points, right_points, missing
 
 
 def finger_strings_for_state(base_state: BaseState, low_string: int, state: RightHandStates) -> dict:
@@ -115,19 +136,17 @@ def finger_strings_for_state(base_state: BaseState, low_string: int, state: Righ
     }[state]
 
 
-def string_point(points: dict, low_string: int, string: float) -> Vector:
+def string_pick_point(right_points: dict, low_string: int, string: float) -> Vector:
     """
-    计算第string根弦在拨弦比PICK_RATIO处的点（世界坐标）
-    string允许小于1：表示越过1弦后按相同弦间距外推的位置
+    计算第string根弦上右手基准点（世界坐标）：由1弦与最低弦的右手定位点沿弦方向线性插值
+    string允许小于1或大于low_string：按相同弦间距外推的位置
     """
     t = (string - 1) / (low_string - 1)
-    f0 = points[(1, 0)].lerp(points[(low_string, 0)], t)
-    f12 = points[(1, 12)].lerp(points[(low_string, 12)], t)
-    return f0.lerp(f12, PICK_RATIO)
+    return right_points[1].lerp(right_points[low_string], t)
 
 
-def right_hand_state_locations(base_state: BaseState, points: dict, low_string: int,
-                               state: RightHandStates) -> dict:
+def right_hand_state_locations(base_state: BaseState, points: dict, right_points: dict,
+                               low_string: int, state: RightHandStates) -> dict:
     """
     计算右手某个状态下所有位置记录器在吉他上的期望摆放位置
     返回{记录器物体名: Vector}，物体名与base_states中的记录器命名一致
@@ -150,7 +169,7 @@ def right_hand_state_locations(base_state: BaseState, points: dict, low_string: 
         count = len(fingers)
         for index, finger in enumerate(fingers):
             string = finger_strings[finger]
-            contacts[finger] = string_point(points, low_string, string) + \
+            contacts[finger] = string_pick_point(right_points, low_string, string) + \
                 u * (index - (count - 1) / 2) * FINGER_SPREAD
 
     recorder_names = base_state.right_hand_position_recorders
@@ -234,7 +253,7 @@ def one_click_initialize(instruments: Instruments, record_states: bool = True) -
     一键初始化：创建所有控制器与记录器，并根据吉他定位点自动计算摆放指板记录器。
     Fret_P0: 1弦1品   Fret_P1: 最低弦1品
     Fret_P2: 1弦12品  Fret_P3: 最低弦12品
-    同时把右手Low/End/High三个状态的记录器摆到吉他上的期望位置（拨弦点约在音孔上方）。
+    同时把右手Low/End/High三个状态的记录器摆到吉他上的期望位置（由右手定位点决定，约拨弦处）。
     record_states为True时，还会把当前控制器姿态记录为所有左右手基准状态，
     右手会先摆到期望位置再记录。
     """
@@ -244,7 +263,7 @@ def one_click_initialize(instruments: Instruments, record_states: bool = True) -
 
     string_count = get_string_count(instruments)
     low_string = string_count
-    points, missing = read_guitar_points(string_count)
+    points, right_points, missing = read_guitar_points(string_count)
 
     result = {
         'low_string': low_string,
@@ -255,10 +274,11 @@ def one_click_initialize(instruments: Instruments, record_states: bool = True) -
         'states_recorded': None,
     }
 
-    # 计算Fret_P0~P3与右手期望位置需要1弦和最低弦两端的定位点，其余弦的定位点缺失不影响计算结果
+    # 计算Fret_P0~P3与右手期望位置需要1弦和最低弦两端的定位点及两个右手定位点，
+    # 缺少任何一个都无法完成计算
     required = [(1, 0), (1, 12), (low_string, 0), (low_string, 12)]
     right_hand_locations = None
-    if any(key not in points for key in required):
+    if any(key not in points for key in required) or len(right_points) < 2:
         print("一键初始化: 缺少定位点，跳过Fret_P0~P3与右手状态的摆放")
     else:
         positions = {
@@ -282,7 +302,7 @@ def one_click_initialize(instruments: Instruments, record_states: bool = True) -
         right_hand_locations = {}
         for state in RightHandStates:
             locations = right_hand_state_locations(
-                base_state, points, low_string, state)
+                base_state, points, right_points, low_string, state)
             right_hand_locations[state] = locations
             for recorder_obj_name, location in locations.items():
                 obj = bpy.data.objects.get(recorder_obj_name)
