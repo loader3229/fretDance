@@ -8,7 +8,8 @@ from bpy_extras.io_utils import ImportHelper, ExportHelper  # type: ignore
 from .make_animation import clear_all_keyframe, clear_string_animation, animate_hand, animate_string
 
 # 使用相对导入
-from .base_states import BaseState, Instruments, BasePositions, LeftHandStates, RightHandStates
+from .base_states import (BaseState, Instruments, BasePositions, LeftHandStates,
+                          RightHandStates, bind_guitar_objects)
 from .mmd2blender import mmd2blender
 from .one_click_init import create_guitar_points, one_click_initialize, get_string_count
 
@@ -129,6 +130,52 @@ class FRET_DANCE_OT_one_click_init(Operator):
                 f"基准状态已记录(左手{states['left']}组、右手{states['right']}个状态)")
 
         self.report({status}, "；".join(parts))
+        return {'FINISHED'}
+
+
+class FRET_DANCE_OT_bind_guitar(Operator):
+    """先选中吉他物体再点击：把全部吉他定位点(S*_F*/S*_Right)与控制器空物体绑定到该物体上，吉他移动时它们跟随移动（绑定保持世界位置不变）"""
+    bl_idname = "fret_dance.bind_guitar"
+    bl_label = "绑定到吉他物体"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.object is not None
+
+    def execute(self, context):
+        guitar_obj = context.object
+        result = bind_guitar_objects(guitar_obj, bind=True)
+        bound, skipped = result['bound'], result['skipped']
+        if bound:
+            self.report(
+                {'INFO'}, f"已把{len(bound)}个定位点/控制器绑定到 {guitar_obj.name}，移动吉他即可带动它们")
+        else:
+            self.report(
+                {'WARNING'}, f"没有可绑定的物体（{len(skipped)}个已绑定在 {guitar_obj.name} 上）。请先创建吉他定位点与控制器")
+        return {'FINISHED'}
+
+
+class FRET_DANCE_OT_unbind_guitar(Operator):
+    """先选中吉他物体再点击：解除定位点/控制器与该物体的父子绑定，保持世界位置不变"""
+    bl_idname = "fret_dance.unbind_guitar"
+    bl_label = "解绑吉他物体"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.object is not None
+
+    def execute(self, context):
+        guitar_obj = context.object
+        result = bind_guitar_objects(guitar_obj, bind=False)
+        unbound, skipped = result['unbound'], result['skipped']
+        if unbound:
+            self.report(
+                {'INFO'}, f"已解除{len(unbound)}个定位点/控制器与 {guitar_obj.name} 的绑定")
+        else:
+            self.report(
+                {'WARNING'}, f"没有绑定在 {guitar_obj.name} 上的定位点/控制器，无需解绑")
         return {'FINISHED'}
 
 
@@ -548,6 +595,10 @@ class FRET_DANCE_PT_main_panel(Panel):
         row.prop(scene, "fret_dance_one_click_record_states")
         row = one_click_box.row()
         row.operator("fret_dance.one_click_init")
+        # 绑定到吉他物体：选中吉他后点击，移动吉他时定位点与控制器跟随移动
+        row = box.row(align=True)
+        row.operator("fret_dance.bind_guitar")
+        row.operator("fret_dance.unbind_guitar")
 
         row = box.row(align=True)
         row.operator("fret_dance.check_status")
@@ -669,6 +720,8 @@ def register():
     bpy.utils.register_class(FRET_DANCE_OT_check_status)
     bpy.utils.register_class(FRET_DANCE_OT_create_guitar_points)
     bpy.utils.register_class(FRET_DANCE_OT_one_click_init)
+    bpy.utils.register_class(FRET_DANCE_OT_bind_guitar)
+    bpy.utils.register_class(FRET_DANCE_OT_unbind_guitar)
     bpy.utils.register_class(FRET_DANCE_OT_set_state)
     bpy.utils.register_class(FRET_DANCE_OT_load_state)
     bpy.utils.register_class(FRET_DANCE_OT_export_info)
@@ -693,6 +746,8 @@ def unregister():
     bpy.utils.unregister_class(FRET_DANCE_OT_setup_objects)
     bpy.utils.unregister_class(FRET_DANCE_OT_one_click_init)
     bpy.utils.unregister_class(FRET_DANCE_OT_create_guitar_points)
+    bpy.utils.unregister_class(FRET_DANCE_OT_bind_guitar)
+    bpy.utils.unregister_class(FRET_DANCE_OT_unbind_guitar)
     bpy.utils.unregister_class(WM_OT_mmd2blender_initialize)
     bpy.utils.unregister_class(FRET_DANCE_OT_select_animation_file)
     bpy.utils.unregister_class(FRET_DANCE_OT_generate_all_animation)

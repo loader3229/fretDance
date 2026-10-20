@@ -1249,6 +1249,62 @@ class BaseState():
             traceback.print_exc()
 
 
+# 跟随吉他移动的控制器空物体名（与BaseState中各类控制器一致，含手掌旋转控制器）
+GUITAR_CONTROLLER_NAMES = (
+    'H_L', 'HP_L', 'T_L', 'TP_L',
+    'H_R', 'HP_R',
+    'H_rotation_L', 'H_rotation_R',
+    'I_L', 'M_L', 'R_L', 'P_L',
+    'T_R', 'TP_R', 'I_R', 'M_R', 'R_R', 'P_R',
+)
+
+
+def _is_guitar_point_name(name: str) -> bool:
+    """判断物体名是否为吉他定位点：S{数字}_F{数字} 或 S{数字}_Right（忽略.001等重名后缀）"""
+    base = name.split('.')[0]
+    parts = base.split('_')
+    if len(parts) != 2 or not parts[0].startswith('S') or not parts[0][1:].isdigit():
+        return False
+    return (parts[1].startswith('F') and parts[1][1:].isdigit()) or parts[1] == 'Right'
+
+
+def collect_guitar_binding_objects() -> list:
+    """收集需要跟随吉他移动的物体：全部吉他定位点与控制器空物体，不存在的自动跳过"""
+    names = list(GUITAR_CONTROLLER_NAMES)
+    names.extend(obj.name for obj in bpy.data.objects if _is_guitar_point_name(obj.name))
+    return [bpy.data.objects[name] for name in names if name in bpy.data.objects]
+
+
+def bind_guitar_objects(guitar_obj, bind: bool = True) -> dict:
+    """
+    把吉他定位点与控制器绑定（parent）到吉他物体上，保持世界位置不变，
+    吉他移动时定位点与控制器跟随移动。bind=False时解除与该物体的父子关系（同样保持世界位置）。
+    返回{'bound'/'unbound': 操作的物体名列表, 'skipped': 已处于目标状态而跳过的物体名列表}
+    """
+    action = 'bound' if bind else 'unbound'
+    result = {action: [], 'skipped': []}
+
+    for obj in collect_guitar_binding_objects():
+        matrix_world = obj.matrix_world.copy()
+        if bind:
+            if obj.parent == guitar_obj:
+                result['skipped'].append(obj.name)
+                continue
+            # 设置parent后重设世界矩阵补偿（兼容绑定前已有父物体的情形），保持世界位置不变
+            obj.parent = guitar_obj
+            obj.matrix_parent_inverse = guitar_obj.matrix_world.inverted()
+            obj.matrix_world = matrix_world
+        else:
+            if obj.parent != guitar_obj:
+                result['skipped'].append(obj.name)
+                continue
+            obj.parent = None
+            obj.matrix_world = matrix_world
+        result[action].append(obj.name)
+
+    return result
+
+
 if __name__ == '__main__':
     # 创建一个实例
     base_state = BaseState(Instruments.FINGER_STYLE_GUITAR)
