@@ -70,8 +70,10 @@ uv run main.py
 1. 打包插件：把 `src/fret_dance_addon` 整个文件夹压缩成 zip
 2. Blender 中 `编辑 > 首选项 > 插件 > 安装`，选择 zip 并启用 **FretDance Controller Setup**
 3. 3D 视图右侧边栏打开 **FretDance** 选项卡：
-   - 「初始化」区域选乐器类型 → 点「一键初始化」创建控制器与记录器（详细原理见 [one_click_init.md](../src/fret_dance_addon/one_click_init.md)）
-   - MMD 模型：选中骨架后点「初始化 mmd 骨骼」绑定手指，再点一次「一键初始化」记录基准状态
+   - 「初始化」区域选乐器类型 → 点「创建吉他定位点」生成 6 个定位点（`S1_F0`、`S1_F12`、`S6_F0`、`S6_F12` 与右手定位点 `S1_Right`、`S6_Right`，贝斯为 `S4_*`），把它们摆到吉他模型对应位置
+   - 选中场景中的吉他（贝斯）物体，点「绑定到吉他物体」，让定位点/控制器/记录器跟随吉他移动
+   - 点「一键初始化」创建控制器与记录器并自动摆放（详细原理见 [one_click_init.md](../src/fret_dance_addon/one_click_init.md)）
+   - MMD 模型：选中骨架后点「初始化 mmd 骨骼」绑定手指与手臂轴心，再点一次「一键初始化」记录基准状态
 4. 「生成动画」区域：选择第 3 步输出的 `animation_config` JSON → 一键生成全部动画
 
 插件面板各功能详见 [插件说明书](../src/fret_dance_addon/readme.md)。
@@ -80,6 +82,7 @@ uv run main.py
 
 - **找不到角色**：`asset/controller_infos/` 下没有对应 json。先用插件在 Blender 里为模型导出人物信息。
 - **找不到 MIDI**：确认文件在 `asset/midi/` 下，或用完整路径传入。
+- **一键初始化提示缺少定位点**：场景里没有 6 个定位点或位置不对。先点「创建吉他定位点」，摆好后重试；缺失名单会显示在报告中。
 - **提示没有合适的按法/拨法**：MIDI 谱面超出乐器音域或声部过密，检查角色类型与谱面是否匹配、是否需要 `--octave-down` 或自定义 `-s` 弦音高。
 - **FPS 说明**：同一首曲子用不同 FPS 生成两次会得到不同帧数的动画数据，Blender 场景帧率需与生成时一致。
 

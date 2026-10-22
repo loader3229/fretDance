@@ -89,7 +89,7 @@ class FRET_DANCE_OT_create_guitar_points(Operator):
 
 
 class FRET_DANCE_OT_one_click_init(Operator):
-    """创建控制器与记录器，根据6个吉他定位点(S1_F0、S1_F12、S6_F0、S6_F12、S1_Right、S6_Right)自动摆放指板记录器Fret_P0~P3和右手Low/End/High三个状态的记录器。勾选「记录基准状态」时，还会把控制器姿态记录为所有左右手基准状态（右手先摆到期望位置再记录）"""
+    """创建控制器与记录器，根据6个吉他定位点(S1_F0、S1_F12、S6_F0、S6_F12、S1_Right、S6_Right)自动摆放指板记录器Fret_P0~P3和右手Low/End/High三个状态的记录器，并按已配置角色场景的约定自动配置子父子关系（旋转控制器挂手掌、右手手指挂拇指/手掌）。勾选「记录基准状态」时，还会把控制器姿态记录为所有左右手基准状态（右手先摆到期望位置再记录）"""
     bl_idname = "fret_dance.one_click_init"
     bl_label = "一键初始化"
     bl_options = {'REGISTER', 'UNDO'}
@@ -129,12 +129,18 @@ class FRET_DANCE_OT_one_click_init(Operator):
             parts.append(
                 f"基准状态已记录(左手{states['left']}组、右手{states['right']}个状态)")
 
+        # 子父子关系配置结果
+        topology = result.get('topology') or {}
+        if topology.get('sub_parented'):
+            parts.append(
+                f"子父子关系已配置({len(topology['sub_parented'])}个)")
+
         self.report({status}, "；".join(parts))
         return {'FINISHED'}
 
 
 class FRET_DANCE_OT_bind_guitar(Operator):
-    """先选中吉他物体再点击：把全部吉他定位点(S*_F*/S*_Right)与控制器空物体绑定到该物体上，吉他移动时它们跟随移动（绑定保持世界位置不变）"""
+    """先选中吉他物体再点击：把吉他定位点(S*_F*/S*_Right)、手/手指控制器与全部记录器绑定到该物体上，吉他移动时它们跟随移动。手臂/拇指IK轴心(HP/TP)不绑定，应通过「初始化mmd骨骼」挂到角色肩/腕骨骼上跟随角色（绑定保持世界位置不变）"""
     bl_idname = "fret_dance.bind_guitar"
     bl_label = "绑定到吉他物体"
     bl_options = {'REGISTER', 'UNDO'}

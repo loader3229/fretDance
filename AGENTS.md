@@ -29,7 +29,7 @@ python -m unittest tests.testUtils               # 运行测试
 
 - `src/animate` 动画数据生成；`src/guitar` 吉他/弦/音符模型；`src/hand` 左右手求解；`src/midi` MIDI 解析；`src/utils` 工具
 - `src/HandPoseRecorder.py` 平铺在 `src/` 根（不在子包内），导入路径为 `src.HandPoseRecorder`
-- `src/fret_dance_addon/` 是 Blender 插件（打包为 zip 安装，目标 Blender 4.5），其中的 `readme.md` / `one_click_init.md` 随插件分发，**不要移到 docs/**
+- `src/fret_dance_addon/` 是 Blender 插件（打包为 zip 安装，目标 Blender 4.5），其中的 `readme.md` / `one_click_init.md` 随插件分发，**不要移到 docs/**。用 Blender MCP 实测插件时，先把改动文件复制到已安装目录 `%APPDATA%\Blender Foundation\Blender\4.5\scripts\addons\fret_dance_addon\` 再重载插件，否则测试的是旧代码
 - `asset/controller_infos/*.json` 角色配置（已被 .gitignore 忽略，仓库里可能看不到）；`asset/midi/` 存放 MIDI（同样被忽略）
 - `output/` 全部为生成产物，勿手改、勿提交
 

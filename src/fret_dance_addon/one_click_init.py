@@ -1,6 +1,6 @@
 import bpy  # type: ignore
 from collections import defaultdict
-from mathutils import Vector  # type: ignore
+from mathutils import Matrix, Vector  # type: ignore
 from .base_states import BaseState, Instruments, BasePositions, LeftHandStates, RightHandStates
 
 # 12平均律品格位置：弦枕(0品)到12品的距离是弦长的一半，弦枕到1品的距离是弦长的(1 - 2^(-1/12))
@@ -218,7 +218,69 @@ def move_right_hand_controllers(base_state: BaseState, locations: dict,
             continue
         controller = bpy.data.objects.get(controller_obj_name)
         if controller is not None:
-            controller.location = locations[recorder_obj_name]
+            set_world_location(controller, locations[recorder_obj_name])
+
+
+# 参考已配置角色(户山香澄)场景总结的子父子关系约定：
+# 旋转控制器挂在手掌控制器下、部分右手手指挂在拇指/手掌控制器下，方便摆姿势时整体移动
+# 注意：手臂/拇指IK轴心(HP/TP)挂到角色肩部/手腕骨骼由「初始化mmd骨骼」完成(mmd2blender.move_objs_to_bones)，
+# 一键初始化不重复处理
+SUB_PARENTS = {
+    'H_rotation_L': 'H_L',
+    'H_rotation_R': 'H_R',
+    'I_R': 'T_R',
+    'M_R': 'T_R',
+    'R_R': 'H_R',
+    'P_R': 'H_R',
+}
+
+
+def set_world_location(obj, world_location) -> None:
+    """设置物体世界坐标（兼容已绑定父级/骨骼父级的物体）"""
+    matrix_world = obj.matrix_world.copy()
+    matrix_world.translation = world_location
+    obj.matrix_world = matrix_world
+
+
+def _preserve_world_parent(obj, parent, parent_type: str = 'OBJECT', parent_bone: str = '') -> bool:
+    """
+    把obj挂到parent下并保持世界变换不变
+    若已经处于目标父子关系则不改动，返回是否执行了重新挂载
+    """
+    if obj.parent == parent and obj.parent_type == parent_type and \
+            (parent_type != 'BONE' or obj.parent_bone == parent_bone):
+        return False
+    matrix_world = obj.matrix_world.copy()
+    obj.parent = parent
+    obj.parent_type = parent_type
+    obj.parent_bone = parent_bone
+    obj.matrix_parent_inverse = Matrix.Identity(4)
+    bpy.context.view_layer.update()
+    obj.matrix_world = matrix_world
+    return True
+
+
+def apply_reference_topology() -> dict:
+    """
+    按已配置角色场景的约定自动配置控制器的子父子关系：
+    旋转控制器挂到手掌控制器下、部分右手手指挂到拇指/手掌控制器下。
+    只调整无父级或已处于目标父子关系的控制器，用户手动设置的其他父级保持不变。
+    返回{'sub_parented': [...], 'skipped': [...]}
+    """
+    result = {'sub_parented': [], 'skipped': []}
+
+    for child_name, parent_name in SUB_PARENTS.items():
+        child = bpy.data.objects.get(child_name)
+        parent = bpy.data.objects.get(parent_name)
+        if child is None or parent is None:
+            continue
+        if child.parent is not None and child.parent.name != parent_name:
+            # 已挂在其他物体（如吉他或用户自定义父级）下，保持不动
+            result['skipped'].append(child_name)
+            continue
+        if _preserve_world_parent(child, parent):
+            result['sub_parented'].append(f"{child_name}→{parent_name}")
+    return result
 
 
 def record_base_states(base_state: BaseState, right_hand_locations: dict = None) -> dict:
@@ -254,12 +316,17 @@ def one_click_initialize(instruments: Instruments, record_states: bool = True) -
     Fret_P0: 1弦1品   Fret_P1: 最低弦1品
     Fret_P2: 1弦12品  Fret_P3: 最低弦12品
     同时把右手Low/End/High三个状态的记录器摆到吉他上的期望位置（由右手定位点决定，约拨弦处）。
+    还会按已配置角色场景的约定自动配置子父子关系（旋转控制器挂手掌、部分右手手指挂拇指/手掌）；
+    手臂/拇指IK轴心挂角色骨骼由「初始化mmd骨骼」完成。
     record_states为True时，还会把当前控制器姿态记录为所有左右手基准状态，
     右手会先摆到期望位置再记录。
     """
     # 创建所有控制器与记录器（已存在的会复用）
     base_state = BaseState(instruments)
     base_state.setup_all_objects()
+
+    # 按已配置角色场景的约定配置子父子关系（旋转控制器挂手掌、右手手指挂拇指/手掌）
+    topology = apply_reference_topology()
 
     string_count = get_string_count(instruments)
     low_string = string_count
@@ -272,6 +339,7 @@ def one_click_initialize(instruments: Instruments, record_states: bool = True) -
         'right_hand_placed': False,
         'positions': {},
         'states_recorded': None,
+        'topology': topology,
     }
 
     # 计算Fret_P0~P3与右手期望位置需要1弦和最低弦两端的定位点及两个右手定位点，
@@ -292,7 +360,7 @@ def one_click_initialize(instruments: Instruments, record_states: bool = True) -
             obj = bpy.data.objects.get(recorder_name)
             if obj is not None:
                 obj.lock_location = (False, False, False)
-                obj.location = location
+                set_world_location(obj, location)
 
         result['fret_placed'] = True
         result['positions'] = {name: location.copy()
@@ -308,7 +376,7 @@ def one_click_initialize(instruments: Instruments, record_states: bool = True) -
                 obj = bpy.data.objects.get(recorder_obj_name)
                 if obj is not None:
                     obj.lock_location = (False, False, False)
-                    obj.location = location
+                    set_world_location(obj, location)
         result['right_hand_placed'] = True
 
     # 记录所有左右手基准状态（右手先摆到期望位置再记录）

@@ -1249,10 +1249,11 @@ class BaseState():
             traceback.print_exc()
 
 
-# 跟随吉他移动的控制器空物体名（与BaseState中各类控制器一致，含手掌旋转控制器）
+# 跟随吉他移动的控制器空物体名（手/手指与旋转控制器）
+# 手臂/拇指IK轴心(HP/TP)应跟随角色骨骼而不是吉他，因此不参与绑定
 GUITAR_CONTROLLER_NAMES = (
-    'H_L', 'HP_L', 'T_L', 'TP_L',
-    'H_R', 'HP_R',
+    'H_L', 'T_L',
+    'H_R',
     'H_rotation_L', 'H_rotation_R',
     'I_L', 'M_L', 'R_L', 'P_L',
     'T_R', 'TP_R', 'I_R', 'M_R', 'R_R', 'P_R',
@@ -1269,10 +1270,20 @@ def _is_guitar_point_name(name: str) -> bool:
 
 
 def collect_guitar_binding_objects() -> list:
-    """收集需要跟随吉他移动的物体：全部吉他定位点与控制器空物体，不存在的自动跳过"""
+    """
+    收集需要跟随吉他移动的物体：吉他定位点、手/手指控制器与全部记录器
+    （手臂/拇指IK轴心HP/TP跟随角色骨骼，不包含），不存在的自动跳过
+    """
     names = list(GUITAR_CONTROLLER_NAMES)
     names.extend(obj.name for obj in bpy.data.objects if _is_guitar_point_name(obj.name))
-    return [bpy.data.objects[name] for name in names if name in bpy.data.objects]
+    # 记录器用指弹吉他的全量集合，缺少的物体自动跳过
+    base = BaseState(Instruments.FINGER_STYLE_GUITAR)
+    names.extend(base.guitar_fret_positions.values())
+    names.extend(base.left_hand_position_recorders.values())
+    names.extend(base.right_hand_position_recorders.values())
+    names.extend(base.right_hand_rotation_recorders.values())
+    return [bpy.data.objects[name]
+            for name in dict.fromkeys(names) if name in bpy.data.objects]
 
 
 def bind_guitar_objects(guitar_obj, bind: bool = True) -> dict:
@@ -1288,6 +1299,10 @@ def bind_guitar_objects(guitar_obj, bind: bool = True) -> dict:
         matrix_world = obj.matrix_world.copy()
         if bind:
             if obj.parent == guitar_obj:
+                result['skipped'].append(obj.name)
+                continue
+            if obj.parent is not None and obj.parent.name in GUITAR_CONTROLLER_NAMES:
+                # 已挂在其他控制器下（一键初始化配置的子父子关系），随父级一起跟随吉他
                 result['skipped'].append(obj.name)
                 continue
             # 设置parent后重设世界矩阵补偿（兼容绑定前已有父物体的情形），保持世界位置不变
