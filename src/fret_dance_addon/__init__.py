@@ -114,7 +114,9 @@ class FRET_DANCE_OT_one_click_init(Operator):
             parts.append("Fret_P0~P3已根据吉他定位点摆放")
         else:
             status = 'WARNING'
-            if len(result['missing']) == 6:
+            if result.get('geometry_error'):
+                parts.append(f"{result['geometry_error']}，未摆放Fret_P0~P3")
+            elif len(result['missing']) == 6:
                 parts.append(
                     "尚未创建吉他定位点，未摆放Fret_P0~P3。请先点击「创建吉他定位点」并将它们移动到吉他的实际位置")
             else:
@@ -128,6 +130,8 @@ class FRET_DANCE_OT_one_click_init(Operator):
             states = result['states_recorded']
             parts.append(
                 f"基准状态已记录(左手{states['left']}组、右手{states['right']}个状态)")
+            if result.get('right_states_skipped'):
+                parts.append("缺少有效定位点，右手基准状态未记录；摆放定位点后请重新运行")
 
         # 子父子关系配置结果
         topology = result.get('topology') or {}

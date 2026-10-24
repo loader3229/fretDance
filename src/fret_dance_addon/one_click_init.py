@@ -11,9 +11,12 @@ FRET_1_RATIO = 2 * (1 - 2 ** (-1 / 12))
 GUITAR_POINT_COLLECTION = "GuitarPoints"
 
 # 右手默认摆放参数（单位：米），之后可以摆好姿势重新Set覆盖
+# 手掌落位由已配置角色（Jeht/kamisato/mio_B/Kasumi_E的controller_infos及场景）实测校准：
+# 相对指尖质心，主要朝低音弦方向偏移（手掌在指尖的拇指侧后方），沿弦方向略朝琴桥，略高于弦平面
 DEFAULT_PICK_RATIO = 1.25  # 新建右手定位点时的默认位置：距琴枕0品~12品距离的倍数（约音孔上方）
 FINGER_SPREAD = 0.008    # 多根手指落在同一根弦上时，沿弦方向互相错开的间距
-RIGHT_HAND_BACK = 0.18   # 手掌控制器H_R位于指尖质心后方（朝琴头方向）的距离
+RIGHT_HAND_BRIDGE = 0.06  # 手掌控制器H_R相对指尖质心朝琴桥方向（沿弦方向u）偏移的距离
+RIGHT_HAND_ACROSS = 0.08  # 手掌控制器H_R相对指尖质心朝低音弦方向（跨弦方向v）偏移的距离
 RIGHT_HAND_UP = 0.04     # 手掌控制器H_R高于弦平面的距离
 RIGHT_ARM_UP = 0.24      # 手臂IK轴心HP_R高于手掌控制器的距离
 RIGHT_ARM_BACK = 0.08    # 手臂IK轴心HP_R朝琴头方向偏移的距离
@@ -51,7 +54,8 @@ def create_guitar_points(string_count: int = 6) -> tuple[int, int]:
     scene_collection = bpy.context.scene.collection
     if GUITAR_POINT_COLLECTION in bpy.data.collections:
         collection = bpy.data.collections[GUITAR_POINT_COLLECTION]
-        if collection not in scene_collection.children_recursive and collection not in scene_collection.children:
+        # children_recursive包含所有层级的子集合（含直接子级）
+        if collection not in scene_collection.children_recursive:
             scene_collection.children.link(collection)
     else:
         collection = bpy.data.collections.new(GUITAR_POINT_COLLECTION)
@@ -114,6 +118,29 @@ def read_guitar_points(string_count: int) -> tuple[dict, dict, list]:
         else:
             right_points[string] = obj.matrix_world.translation.copy()
     return points, right_points, missing
+
+
+def validate_guitar_points(points: dict, low_string: int) -> str:
+    """
+    校验定位点几何的合理性，防止定位点放错（重合/过近/共线）时
+    静默计算出错误的记录器位置。返回错误描述，None表示通过
+    """
+    for string in (1, low_string):
+        distance = (points[(string, 12)] - points[(string, 0)]).length
+        if not 0.05 <= distance <= 0.6:
+            return (f"S{string}的0品~12品定位点相距{distance * 100:.1f}cm，"
+                    "超出常见吉他/贝斯的合理范围(5~60cm)，请检查0品/12品定位点")
+    span = (points[(low_string, 0)] - points[(1, 0)]).length
+    if not 0.005 <= span <= 0.15:
+        return (f"1弦与最低弦的0品定位点相距{span * 1000:.0f}mm，"
+                "超出合理范围(5~150mm)，请检查两组品定位点是否放在不同的弦上")
+    # 四个品定位点近似共线时无法构建弦坐标系（法线为零，位置计算全部失效）
+    u = (points[(1, 12)] + points[(low_string, 12)]
+         - points[(1, 0)] - points[(low_string, 0)]).normalized()
+    v = (points[(low_string, 0)] - points[(1, 0)]).normalized()
+    if u.cross(v).length < 0.1:
+        return "四个品定位点近似共线，无法确定弦平面，请检查定位点是否放在弦上"
+    return None
 
 
 def finger_strings_for_state(base_state: BaseState, low_string: int, state: RightHandStates) -> dict:
@@ -188,12 +215,13 @@ def right_hand_state_locations(base_state: BaseState, points: dict, right_points
     if name is not None:
         locations[name] = contacts['p'] + n * THUMB_PIVOT_UP
 
-    # 手掌控制器在指尖质心后方（朝琴头）并抬高；手臂IK轴心再向后上方
+    # 手掌控制器相对指尖质心朝琴桥/低音弦方向偏移并略抬高（按已配置角色实测校准）；
+    # 手臂IK轴心再向后上方
     centroid = Vector()
     for contact in contacts.values():
         centroid += contact
     centroid /= len(contacts)
-    hand = centroid - u * RIGHT_HAND_BACK + n * RIGHT_HAND_UP
+    hand = centroid + u * RIGHT_HAND_BRIDGE + v * RIGHT_HAND_ACROSS + n * RIGHT_HAND_UP
     name = recorder('h')
     if name is not None:
         locations[name] = hand
@@ -287,7 +315,9 @@ def record_base_states(base_state: BaseState, right_hand_locations: dict = None)
     """
     将当前控制器姿态记录为所有左右手基准状态（Set）。
     左手: P0~P4 × Normal/Outer/Inner/Barre（跳过无效组合）
-    右手: Low/End/High 三个状态；提供right_hand_locations时先把右手控制器摆到对应期望位置再记录
+    右手: Low/End/High 三个状态；提供right_hand_locations时先把右手控制器摆到对应期望位置再记录；
+    right_hand_locations为None（定位点缺失，右手控制器未摆到吉他上）时跳过右手记录，
+    避免把未摆放的占位姿态写入右手记录器
     返回{'left': 成功记录的左手组合数, 'right': 成功记录的右手状态数}
     """
     left_count = 0
@@ -300,12 +330,14 @@ def record_base_states(base_state: BaseState, right_hand_locations: dict = None)
                 left_count += 1
 
     right_count = 0
-    for state in RightHandStates:
-        if right_hand_locations and state in right_hand_locations:
+    if right_hand_locations is None:
+        print("一键初始化: 右手控制器未摆到吉他期望位置，跳过右手基准状态记录")
+    else:
+        for state in RightHandStates:
             move_right_hand_controllers(
                 base_state, right_hand_locations[state], state)
-        if base_state.transfer_right_hand_state(state, direction='set'):
-            right_count += 1
+            if base_state.transfer_right_hand_state(state, direction='set'):
+                right_count += 1
 
     return {'left': left_count, 'right': right_count}
 
@@ -340,14 +372,22 @@ def one_click_initialize(instruments: Instruments, record_states: bool = True) -
         'positions': {},
         'states_recorded': None,
         'topology': topology,
+        'geometry_error': None,
+        'right_states_skipped': False,
     }
 
     # 计算Fret_P0~P3与右手期望位置需要1弦和最低弦两端的定位点及两个右手定位点，
     # 缺少任何一个都无法完成计算
     required = [(1, 0), (1, 12), (low_string, 0), (low_string, 12)]
+    points_ready = (not any(key not in points for key in required)
+                    and len(right_points) >= 2)
+    geometry_error = validate_guitar_points(points, low_string) if points_ready else None
     right_hand_locations = None
-    if any(key not in points for key in required) or len(right_points) < 2:
+    if not points_ready:
         print("一键初始化: 缺少定位点，跳过Fret_P0~P3与右手状态的摆放")
+    elif geometry_error is not None:
+        result['geometry_error'] = geometry_error
+        print(f"一键初始化: {geometry_error}，跳过Fret_P0~P3与右手状态的摆放")
     else:
         positions = {
             'Fret_P0': points[(1, 0)] + (points[(1, 12)] - points[(1, 0)]) * FRET_1_RATIO,
@@ -379,9 +419,11 @@ def one_click_initialize(instruments: Instruments, record_states: bool = True) -
                     set_world_location(obj, location)
         result['right_hand_placed'] = True
 
-    # 记录所有左右手基准状态（右手先摆到期望位置再记录）
+    # 记录所有左右手基准状态（右手先摆到期望位置再记录；
+    # 定位点缺失/几何异常时右手控制器未摆到吉他上，会跳过右手记录）
     if record_states:
         result['states_recorded'] = record_base_states(
             base_state, right_hand_locations)
+        result['right_states_skipped'] = right_hand_locations is None
 
     return result

@@ -634,8 +634,14 @@ class BaseState():
             if direction == "set":
                 # 解锁记录器位置
                 self.unlock_object_location(target_obj)
-            # 复制位置
-            target_obj.location = source_obj.location
+            # 按世界坐标拷贝位置：控制器可能挂在不同的父级下（如手指控制器挂在拇指/
+            # 手掌控制器下、控制器挂在角色骨架下），直接拷贝局部location会把相对
+            # 父级的坐标当成世界坐标写入记录器。update()保证刚被移动过的源对象
+            # matrix_world是最新的
+            bpy.context.view_layer.update()
+            matrix_world = target_obj.matrix_world.copy()
+            matrix_world.translation = source_obj.matrix_world.translation
+            target_obj.matrix_world = matrix_world
         elif transfer_type == "rotation":
             if direction == "set":
                 # 解锁记录器旋转
