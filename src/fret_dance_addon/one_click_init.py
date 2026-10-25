@@ -120,9 +120,9 @@ def read_guitar_points(string_count: int) -> tuple[dict, dict, list]:
     return points, right_points, missing
 
 
-def validate_guitar_points(points: dict, low_string: int) -> str:
+def validate_guitar_points(points: dict, right_points: dict, low_string: int) -> str:
     """
-    校验定位点几何的合理性，防止定位点放错（重合/过近/共线）时
+    校验定位点几何的合理性，防止定位点放错（重合/过近/共线/放反）时
     静默计算出错误的记录器位置。返回错误描述，None表示通过
     """
     for string in (1, low_string):
@@ -130,16 +130,36 @@ def validate_guitar_points(points: dict, low_string: int) -> str:
         if not 0.05 <= distance <= 0.6:
             return (f"S{string}的0品~12品定位点相距{distance * 100:.1f}cm，"
                     "超出常见吉他/贝斯的合理范围(5~60cm)，请检查0品/12品定位点")
+    # 两条弦的0品→12品方向应一致，否则某根弦的两端放反了（先查方向，避免被跨弦距离误报）
+    direction_1 = (points[(1, 12)] - points[(1, 0)]).normalized()
+    direction_low = (points[(low_string, 12)] - points[(low_string, 0)]).normalized()
+    if direction_1.dot(direction_low) < 0.9:
+        return (f"1弦与最低弦的0品→12品方向差异过大（点积{direction_1.dot(direction_low):.2f}），"
+                "请检查是否把某根弦的0品/12品定位点放反")
+    # 指板近似矩形：0品与12品两排定位点的跨弦距离应基本一致
     span = (points[(low_string, 0)] - points[(1, 0)]).length
+    span_12 = (points[(low_string, 12)] - points[(1, 12)]).length
     if not 0.005 <= span <= 0.15:
         return (f"1弦与最低弦的0品定位点相距{span * 1000:.0f}mm，"
                 "超出合理范围(5~150mm)，请检查两组品定位点是否放在不同的弦上")
+    if span_12 < 0.005 or span_12 > 0.15:
+        return (f"1弦与最低弦的12品定位点相距{span_12 * 1000:.0f}mm，"
+                "超出合理范围(5~150mm)，请检查两组12品定位点是否放在不同的弦上")
+    if abs(span_12 - span) / span > 0.3:
+        return (f"0品跨弦距离{span * 1000:.0f}mm与12品跨弦距离{span_12 * 1000:.0f}mm"
+                "差异过大（超过30%），请检查定位点是否落在正确的弦上")
     # 四个品定位点近似共线时无法构建弦坐标系（法线为零，位置计算全部失效）
     u = (points[(1, 12)] + points[(low_string, 12)]
          - points[(1, 0)] - points[(low_string, 0)]).normalized()
     v = (points[(low_string, 0)] - points[(1, 0)]).normalized()
     if u.cross(v).length < 0.1:
         return "四个品定位点近似共线，无法确定弦平面，请检查定位点是否放在弦上"
+    # 右手基准点在12品之后（沿u方向更靠近琴桥）；两弦都在另一侧说明0品/12品整体放反
+    f12_mid = points[(1, 12)].lerp(points[(low_string, 12)], 0.5)
+    pick_distances = [(right_points[string] - f12_mid).dot(u) for string in (1, low_string)]
+    if all(distance < -0.03 for distance in pick_distances):
+        return ("右手定位点位于12品的0品一侧，说明0品/12品定位点可能整体放反了，"
+                "请确认S*_F0在弦枕、S*_F12在12品品格丝上")
     return None
 
 
@@ -170,6 +190,25 @@ def string_pick_point(right_points: dict, low_string: int, string: float) -> Vec
     """
     t = (string - 1) / (low_string - 1)
     return right_points[1].lerp(right_points[low_string], t)
+
+
+def is_character_bound(obj) -> bool:
+    """对象是否已挂到角色骨架上（骨骼父级或骨架物体父级），如「初始化 mmd 骨骼」处理过的对象"""
+    parent = obj.parent
+    return obj.parent_type == 'BONE' or (parent is not None and parent.type == 'ARMATURE')
+
+
+def pivot_location(controller_name: str, estimated: Vector) -> Vector:
+    """
+    手臂/拇指IK轴心(HP/TP)的摆放位置。
+    它们同时是IK极向目标(pole target)，方向决定肘/拇指的弯曲朝向：
+    已挂到角色上的保持当前世界位置（由角色校准决定，固定常量会把它搬到
+    与校准方向相反的一侧、导致肘部翻转），未挂载时才用估算值兜底
+    """
+    controller = bpy.data.objects.get(controller_name)
+    if controller is not None and is_character_bound(controller):
+        return controller.matrix_world.translation.copy()
+    return estimated
 
 
 def right_hand_state_locations(base_state: BaseState, points: dict, right_points: dict,
@@ -210,13 +249,14 @@ def right_hand_state_locations(base_state: BaseState, points: dict, right_points
         if name is not None:
             locations[name] = contact
 
-    # 拇指IK轴心在拇指触弦点正上方
+    # 拇指IK轴心在拇指触弦点正上方（已挂到角色的保持当前位置）
     name = recorder('tp')
     if name is not None:
-        locations[name] = contacts['p'] + n * THUMB_PIVOT_UP
+        locations[name] = pivot_location(
+            'TP_R', contacts['p'] + n * THUMB_PIVOT_UP)
 
     # 手掌控制器相对指尖质心朝琴桥/低音弦方向偏移并略抬高（按已配置角色实测校准）；
-    # 手臂IK轴心再向后上方
+    # 手臂IK轴心再向后上方（已挂到角色的保持当前位置）
     centroid = Vector()
     for contact in contacts.values():
         centroid += contact
@@ -227,7 +267,8 @@ def right_hand_state_locations(base_state: BaseState, points: dict, right_points
         locations[name] = hand
     name = recorder('hp')
     if name is not None:
-        locations[name] = hand - u * RIGHT_ARM_BACK + n * RIGHT_ARM_UP
+        locations[name] = pivot_location(
+            'HP_R', hand - u * RIGHT_ARM_BACK + n * RIGHT_ARM_UP)
 
     return locations
 
@@ -240,13 +281,18 @@ def move_right_hand_controllers(base_state: BaseState, locations: dict,
         'H_R': 'h', 'HP_R': 'hp', 'T_R': 'p', 'TP_R': 'tp',
         'I_R': 'i', 'M_R': 'm', 'R_R': 'a', 'P_R': 'ch',
     }
+    # HP_R/TP_R是IK极向目标，已挂到角色的保持当前位置（见pivot_location），不再搬动
+    pivot_controllers = {'HP_R', 'TP_R'}
     for controller_obj_name, suffix in controller_to_suffix.items():
         recorder_obj_name = recorder_names.get(f'{state}_{suffix}')
         if recorder_obj_name is None or recorder_obj_name not in locations:
             continue
         controller = bpy.data.objects.get(controller_obj_name)
-        if controller is not None:
-            set_world_location(controller, locations[recorder_obj_name])
+        if controller is None:
+            continue
+        if controller_obj_name in pivot_controllers and is_character_bound(controller):
+            continue
+        set_world_location(controller, locations[recorder_obj_name])
 
 
 # 参考已配置角色(户山香澄)场景总结的子父子关系约定：
@@ -349,7 +395,8 @@ def one_click_initialize(instruments: Instruments, record_states: bool = True) -
     Fret_P2: 1弦12品  Fret_P3: 最低弦12品
     同时把右手Low/End/High三个状态的记录器摆到吉他上的期望位置（由右手定位点决定，约拨弦处）。
     还会按已配置角色场景的约定自动配置子父子关系（旋转控制器挂手掌、部分右手手指挂拇指/手掌）；
-    手臂/拇指IK轴心挂角色骨骼由「初始化mmd骨骼」完成。
+    手臂/拇指IK轴心挂角色骨骼由「初始化mmd骨骼」完成；已挂到角色的HP_R/TP_R保持当前位置
+    不参与重新摆放（它们是IK极向目标，固定常量会改变肘/拇指的弯曲朝向）。
     record_states为True时，还会把当前控制器姿态记录为所有左右手基准状态，
     右手会先摆到期望位置再记录。
     """
@@ -381,7 +428,8 @@ def one_click_initialize(instruments: Instruments, record_states: bool = True) -
     required = [(1, 0), (1, 12), (low_string, 0), (low_string, 12)]
     points_ready = (not any(key not in points for key in required)
                     and len(right_points) >= 2)
-    geometry_error = validate_guitar_points(points, low_string) if points_ready else None
+    geometry_error = validate_guitar_points(
+        points, right_points, low_string) if points_ready else None
     right_hand_locations = None
     if not points_ready:
         print("一键初始化: 缺少定位点，跳过Fret_P0~P3与右手状态的摆放")
