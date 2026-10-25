@@ -21,6 +21,9 @@ RIGHT_HAND_UP = 0.04     # 手掌控制器H_R高于弦平面的距离
 RIGHT_ARM_UP = 0.24      # 手臂IK轴心HP_R高于手掌控制器的距离
 RIGHT_ARM_BACK = 0.08    # 手臂IK轴心HP_R朝琴头方向偏移的距离
 THUMB_PIVOT_UP = 0.14    # 拇指IK轴心TP_R高于拇指触弦点的距离
+# 以上偏移按标准尺寸的吉他校准；实际会按0品~12品的距离等比缩放，
+# 使超大吉他（如16m角色）与Q版小吉他/贝斯上右手相对琴体的比例保持不变
+REFERENCE_12FRET_DISTANCE = 0.325  # 标准吉他0品~12品距离（650mm弦长的一半，单位：米）
 
 
 def get_string_count(instruments: Instruments) -> int:
@@ -122,29 +125,25 @@ def read_guitar_points(string_count: int) -> tuple[dict, dict, list]:
 
 def validate_guitar_points(points: dict, right_points: dict, low_string: int) -> str:
     """
-    校验定位点几何的合理性，防止定位点放错（重合/过近/共线/放反）时
-    静默计算出错误的记录器位置。返回错误描述，None表示通过
+    校验定位点几何的合理性，防止定位点放错（重合/共线/放反）时
+    静默计算出错误的记录器位置。返回错误描述，None表示通过。
+    不限制绝对尺寸：角色与吉他可任意放大/缩小（超大或Q版吉他），只做拓扑与比例检查
     """
-    for string in (1, low_string):
-        distance = (points[(string, 12)] - points[(string, 0)]).length
-        if not 0.05 <= distance <= 0.6:
-            return (f"S{string}的0品~12品定位点相距{distance * 100:.1f}cm，"
-                    "超出常见吉他/贝斯的合理范围(5~60cm)，请检查0品/12品定位点")
+    # 每条弦的0品与12品必须能确定方向（尺寸不限，只排除重合）
+    for string in [1, low_string]:
+        if (points[(string, 12)] - points[(string, 0)]).length <= 1e-6:
+            return f"S{string}的0品与12品定位点重合，无法确定弦方向，请检查定位点"
     # 两条弦的0品→12品方向应一致，否则某根弦的两端放反了（先查方向，避免被跨弦距离误报）
     direction_1 = (points[(1, 12)] - points[(1, 0)]).normalized()
     direction_low = (points[(low_string, 12)] - points[(low_string, 0)]).normalized()
     if direction_1.dot(direction_low) < 0.9:
         return (f"1弦与最低弦的0品→12品方向差异过大（点积{direction_1.dot(direction_low):.2f}），"
                 "请检查是否把某根弦的0品/12品定位点放反")
-    # 指板近似矩形：0品与12品两排定位点的跨弦距离应基本一致
+    # 指板近似矩形：0品与12品两排定位点的跨弦距离比例应基本一致（尺寸不限）
     span = (points[(low_string, 0)] - points[(1, 0)]).length
     span_12 = (points[(low_string, 12)] - points[(1, 12)]).length
-    if not 0.005 <= span <= 0.15:
-        return (f"1弦与最低弦的0品定位点相距{span * 1000:.0f}mm，"
-                "超出合理范围(5~150mm)，请检查两组品定位点是否放在不同的弦上")
-    if span_12 < 0.005 or span_12 > 0.15:
-        return (f"1弦与最低弦的12品定位点相距{span_12 * 1000:.0f}mm，"
-                "超出合理范围(5~150mm)，请检查两组12品定位点是否放在不同的弦上")
+    if span <= 1e-6 or span_12 <= 1e-6:
+        return "1弦与最低弦在同品上的定位点重合，无法确定指板宽度，请检查定位点"
     if abs(span_12 - span) / span > 0.3:
         return (f"0品跨弦距离{span * 1000:.0f}mm与12品跨弦距离{span_12 * 1000:.0f}mm"
                 "差异过大（超过30%），请检查定位点是否落在正确的弦上")
@@ -211,6 +210,16 @@ def pivot_location(controller_name: str, estimated: Vector) -> Vector:
     return estimated
 
 
+def guitar_scale(points: dict, low_string: int) -> float:
+    """
+    由0品~12品的距离估计吉他相对标准尺寸的缩放比例，用于等比缩放右手偏移常量。
+    取两条弦的平均值，使超大吉他/小吉他（Q版）上的手部偏移与琴体保持同一比例
+    """
+    distances = [(points[(string, 12)] - points[(string, 0)]).length
+                 for string in (1, low_string)]
+    return (sum(distances) / len(distances)) / REFERENCE_12FRET_DISTANCE
+
+
 def right_hand_state_locations(base_state: BaseState, points: dict, right_points: dict,
                                low_string: int, state: RightHandStates) -> dict:
     """
@@ -218,6 +227,8 @@ def right_hand_state_locations(base_state: BaseState, points: dict, right_points
     返回{记录器物体名: Vector}，物体名与base_states中的记录器命名一致
     """
     finger_strings = finger_strings_for_state(base_state, low_string, state)
+    # 右手偏移常量按吉他尺寸缩放（标准吉他时为1）
+    scale = guitar_scale(points, low_string)
 
     # 弦坐标系：u沿弦指向琴桥，v从1弦指向最低弦，n为弦平面法线（朝上）
     f0_mid = points[(1, 0)].lerp(points[(low_string, 0)], 0.5)
@@ -236,7 +247,7 @@ def right_hand_state_locations(base_state: BaseState, points: dict, right_points
         for index, finger in enumerate(fingers):
             string = finger_strings[finger]
             contacts[finger] = string_pick_point(right_points, low_string, string) + \
-                u * (index - (count - 1) / 2) * FINGER_SPREAD
+                u * (index - (count - 1) / 2) * FINGER_SPREAD * scale
 
     recorder_names = base_state.right_hand_position_recorders
 
@@ -253,7 +264,7 @@ def right_hand_state_locations(base_state: BaseState, points: dict, right_points
     name = recorder('tp')
     if name is not None:
         locations[name] = pivot_location(
-            'TP_R', contacts['p'] + n * THUMB_PIVOT_UP)
+            'TP_R', contacts['p'] + n * THUMB_PIVOT_UP * scale)
 
     # 手掌控制器相对指尖质心朝琴桥/低音弦方向偏移并略抬高（按已配置角色实测校准）；
     # 手臂IK轴心再向后上方（已挂到角色的保持当前位置）
@@ -261,14 +272,15 @@ def right_hand_state_locations(base_state: BaseState, points: dict, right_points
     for contact in contacts.values():
         centroid += contact
     centroid /= len(contacts)
-    hand = centroid + u * RIGHT_HAND_BRIDGE + v * RIGHT_HAND_ACROSS + n * RIGHT_HAND_UP
+    hand = (centroid + u * RIGHT_HAND_BRIDGE * scale
+            + v * RIGHT_HAND_ACROSS * scale + n * RIGHT_HAND_UP * scale)
     name = recorder('h')
     if name is not None:
         locations[name] = hand
     name = recorder('hp')
     if name is not None:
         locations[name] = pivot_location(
-            'HP_R', hand - u * RIGHT_ARM_BACK + n * RIGHT_ARM_UP)
+            'HP_R', hand - u * RIGHT_ARM_BACK * scale + n * RIGHT_ARM_UP * scale)
 
     return locations
 
